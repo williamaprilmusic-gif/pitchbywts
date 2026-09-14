@@ -1,8 +1,6 @@
 name: Controller / Deep Reviewer PASS
 
 on:
-  push:
-    branches: [repair/vercel-backend-auth-migration]
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
@@ -27,11 +25,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "${GITHUB_HEAD_REF:-repair/vercel-backend-auth-migration}" != "main"
+          test "${GITHUB_HEAD_REF:-unknown}" != "main"
           test -f backend/index.ts
           test -f server/auth.ts
           test -f server/appdeployCompat.ts
-          test -f api/index.ts
+          test -f api/index.js
           test -f scripts/deep-review-backend-auth.mjs
           ! grep -R "from '@appdeploy/sdk'" backend src server api package.json --exclude-dir=node_modules
           ! grep -R "from '@appdeploy/client'" backend src server api package.json --exclude-dir=node_modules

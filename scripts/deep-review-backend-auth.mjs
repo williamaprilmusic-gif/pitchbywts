@@ -9,16 +9,20 @@ const backend = read('backend/index.ts');
 const client = read('src/platformClient.ts');
 const auth = read('server/auth.ts');
 const adapter = read('server/appdeployCompat.ts');
-const api = read('api/index.ts');
+const api = read('api/index.js');
 const realtime = read('backend/realtime-subscribers.ts');
 
 const assertions = [
   ['backend no longer imports AppDeploy SDK', !backend.includes("from '@appdeploy/sdk'")],
   ['realtime subscribers no longer import AppDeploy SDK', !realtime.includes("from '@appdeploy/sdk'")],
   ['frontend no longer depends on AppDeploy client import', !client.includes('@appdeploy/client')],
-  ['backend uses the Vercel compatibility runtime', backend.includes("from '../server/appdeployCompat'")],
-  ['Vercel static API entrypoint exists', existsSync('api/index.ts') && api.includes("await import('../backend/index')")],
-  ['Vercel API route rewrite exists', read('vercel.json').includes('"/api/:path*"') && read('vercel.json').includes('/api/index')],
+  ['backend uses the Vercel compatibility runtime', backend.includes("from '../server/appdeployCompat'") || backend.includes("from '../server/appdeployCompat.js'")],
+  ['Vercel bundled API entrypoint exists', existsSync('api/index.js') && api.includes('../server/apiRuntime.mjs')],
+  ['Vercel API runtime source exists', existsSync('server/apiEntrypoint.ts')],
+  ['Vercel runtime JS auth module exists', existsSync('server/auth.js')],
+  ['Vercel runtime JS adapter module exists', existsSync('server/appdeployCompat.js')],
+  ['Vercel runtime build script exists', existsSync('scripts/prepare-vercel-runtime.mjs')],
+  ['Vercel API route rewrite exists', read('vercel.json').includes('"/api/:path*"') && read('vercel.json').includes('/api/index.js')],
   ['HttpOnly session cookie is enabled', auth.includes('HttpOnly') && auth.includes('SameSite=Lax')],
   ['session signing is HMAC based', auth.includes('createHmac') && auth.includes("sha256")],
   ['password hashing is scrypt based', auth.includes('scryptSync')],
