@@ -1,0 +1,94 @@
+name: Restore Pitchline source tree
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '.github/workflows/restore-pitchline-source.yml'
+      - '**/.restore-source-marker'
+
+permissions:
+  contents: write
+
+jobs:
+  restore-source:
+    runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, '[extract-source]')"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract AppDeploy source snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ZIP="grassroots-football-hub-2cjj34-1789405131274-src.zip"
+          test -f "$ZIP"
+
+          rm -rf /tmp/pitchline-source
+          mkdir -p /tmp/pitchline-source
+          unzip -q "$ZIP" -d /tmp/pitchline-source
+
+          echo "Extracted files:"
+          find /tmp/pitchline-source -maxdepth 3 -type f | head -80
+
+          SOURCE_ROOT=""
+
+          # Prefer a directory containing both package.json and src/.
+          while IFS= read -r candidate; do
+            if [ -f "$candidate/package.json" ] && [ -d "$candidate/src" ]; then
+              SOURCE_ROOT="$candidate"
+              break
+            fi
+          done < <(find /tmp/pitchline-source -type d -print)
+
+          # Also support a zip whose project files are directly at the archive root.
+          if [ -z "$SOURCE_ROOT" ] && [ -f "/tmp/pitchline-source/package.json" ] && [ -d "/tmp/pitchline-source/src" ]; then
+            SOURCE_ROOT="/tmp/pitchline-source"
+          fi
+
+          if [ -z "$SOURCE_ROOT" ]; then
+            echo "Could not locate the Vite project root in the source ZIP."
+            find /tmp/pitchline-source -maxdepth 5 -print
+            exit 1
+          fi
+
+          echo "Using source root: $SOURCE_ROOT"
+
+          # Copy the complete source tree into the repository root.
+          # Preserve GitHub metadata and this workflow.
+          rsync -a --delete \
+            --exclude='.git/' \
+            --exclude='.github/' \
+            "$SOURCE_ROOT/" ./
+
+          # Ensure the Vite entry expected by index.html actually exists.
+          if [ ! -f "src/main.tsx" ]; then
+            echo "ERROR: source snapshot did not restore src/main.tsx"
+            find src -maxdepth 2 -type f -print 2>/dev/null || true
+            exit 1
+          fi
+
+          test -f package.json
+          test -f index.html
+          echo "Restored source successfully."
+
+      - name: Commit restored source
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -A
+          git commit -m "[extract-source] Restore complete Pitchline Vite source tree" || {
+            echo "No source changes to commit."
+            exit 0
+          }
+
+          git push origin HEAD:main
