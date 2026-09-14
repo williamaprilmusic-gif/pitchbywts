@@ -1,0 +1,41 @@
+name: Repair Pitchline backend runtime import
+
+on:
+  push:
+    branches:
+      - repair/vercel-backend-auth-migration
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout migration branch
+        uses: actions/checkout@v4
+      - name: Replace AppDeploy backend import
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('backend/index.ts')
+          text = path.read_text()
+          old = "from '@appdeploy/sdk'"
+          new = "from '../server/appdeployCompat'"
+          if old not in text:
+              print('No AppDeploy backend import remains.')
+              raise SystemExit(0)
+          path.write_text(text.replace(old, new, 1))
+          PY
+          if git diff --quiet -- backend/index.ts; then
+            echo 'No backend change required.'
+            exit 0
+          fi
+          git config user.name 'Pitchline Migration Agent'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add backend/index.ts
+          git commit -m 'fix: migrate backend off AppDeploy SDK'
+          git push
