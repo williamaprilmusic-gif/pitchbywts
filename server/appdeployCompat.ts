@@ -181,7 +181,7 @@ export function router(routes: Record<string, RouterMiddleware[]>): (req: Incomi
     const body = await readBody(req);
     const ctx: RequestContext = { req, res, method, path, body, params, query: Object.fromEntries(url.searchParams.entries()) };
     try {
-      let result: HttpResult | void;
+      let result: HttpResult | void = undefined;
       for (const middleware of route.middlewares) {
         result = await middleware(ctx);
         if (result) break;
