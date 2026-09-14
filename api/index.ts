@@ -95,9 +95,13 @@ async function authEndpoint(request: VercelRequest, response: VercelResponse, pa
     }
 
     if (pathname === '/api/auth/me' && request.method === 'GET') {
-      const user = getSessionUser(request);
-      if (!user) return send(response, 401, { error: 'Unauthorized', code: 'not_authenticated' });
-      return send(response, 200, { user });
+      try {
+        const user = getSessionUser(request);
+        if (!user) return send(response, 401, { error: 'Unauthorized', code: 'not_authenticated' });
+        return send(response, 200, { user });
+      } catch (error) {
+        return send(response, 503, { error: error instanceof Error ? error.message : 'Authentication service is not configured.' });
+      }
     }
 
     if (pathname === '/api/auth/sign-out' && request.method === 'POST') {
@@ -114,6 +118,17 @@ async function authEndpoint(request: VercelRequest, response: VercelResponse, pa
 
 export default async function api(request: VercelRequest, response: VercelResponse) {
   const pathname = normalizePath(request);
+  if (pathname === '/api/_healthcheck' && request.method === 'GET') {
+    return send(response, 200, {
+      ok: true,
+      runtime: 'vercel-node',
+      databaseConfigured: Boolean(process.env.DATABASE_URL),
+      sessionConfigured: Boolean(process.env.PITCHLINE_SESSION_SECRET),
+      adminBootstrapConfigured: Boolean(process.env.PITCHLINE_ADMIN_EMAIL && process.env.PITCHLINE_ADMIN_PASSWORD),
+      timestamp: new Date().toISOString(),
+    });
+  }
+
   const authHandled = await authEndpoint(request, response, pathname);
   if (authHandled !== false) return;
 
