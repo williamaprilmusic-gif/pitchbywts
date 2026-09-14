@@ -1,0 +1,25 @@
+/* Pitchline click-first interaction layer */
+:root{--pitch-hit:44px}
+button,select,input[type='checkbox'],input[type='radio']{touch-action:manipulation}
+button,.nav-item,.primary,.ghost,.filter,.text-btn,.queue,.pick,.report-card,.tower-fixture{min-height:var(--pitch-hit)}
+button{transition:transform .08s ease,box-shadow .12s ease,border-color .12s ease,background-color .12s ease}
+button:not(:disabled):active{transform:translateY(1px)}
+button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid #d9f45f;outline-offset:2px}
+.role-select,select{min-height:var(--pitch-hit);font-weight:750;cursor:pointer}
+.filter{padding:0 14px;display:inline-flex;align-items:center;justify-content:center}
+.nav-item{padding:10px 12px}
+.primary{padding:0 16px;justify-content:center}
+.primary.small,.ghost.small{min-height:40px}
+.ghost{display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+.pick{padding:8px 10px}
+.pick:hover,.pick.selected{box-shadow:0 0 0 2px #dceeb8}
+.report-card{padding:10px 12px}
+.report-card:hover{box-shadow:0 5px 18px #10261d12;transform:translateY(-1px)}
+.queue{padding:9px 0}
+.queue:hover,.tower-fixture:hover{background:#f5f9f1}
+.score-editor input{min-height:40px}
+input[type='text'],input[type='email'],input[type='password'],input[type='number'],input[type='date'],input[type='time'],textarea{min-height:40px}
+input[type='checkbox'],input[type='radio']{width:18px;height:18px;accent-color:#10221a;cursor:pointer}
+label{cursor:pointer}
+@media (max-width:900px){:root{--pitch-hit:46px}.content{padding:18px}.topbar{padding:0 18px}.hero-row,.page-header{align-items:flex-start;flex-direction:column}.stats-grid{grid-template-columns:repeat(2,1fr)}.dashboard-grid,.dashboard-grid.lower,.admin-grid,.team-grid{grid-template-columns:1fr}.squad-grid{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:560px){.stats-grid,.squad-grid{grid-template-columns:1fr}.fixture-card{grid-template-columns:48px 1fr}.fixture-side{grid-column:2;text-align:left}.score-editor{position:relative;right:auto;top:auto;margin-top:8px;grid-column:1/-1;box-shadow:none}.content{padding:14px}.topbar{height:60px}.hero-row h1,.page-header h1{font-size:26px}}
