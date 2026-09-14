@@ -26,7 +26,7 @@ const assertions = [
   ['protected routes still use requireAuth', backend.includes('requireAuth()')],
   ['role isolation remains present', backend.includes('requireLfaAdmin') && backend.includes('requireAnyRole')],
   ['Postgres adapter uses DATABASE_URL', adapter.includes('DATABASE_URL') && adapter.includes('@neondatabase/serverless')],
-  ['adapter exposes list/get/add/update/delete operations', ['list', 'get', 'add', 'update', 'delete'].every(token => new RegExp(`\\b${token}\\s*[:(]`).test(adapter))],
+  ['adapter exposes list/get/add/update/delete operations', ['list', 'get', 'add', 'update', 'delete'].every(token => adapter.includes(`async ${token}`))],
   ['placeholder authentication error is gone', !client.includes('authentication is not configured on Vercel yet')],
   ['frontend credentials are sent as cookies', client.includes("credentials: 'include'")],
 ];
