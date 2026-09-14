@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { api, ws } from '@appdeploy/client';
+import { api, ws } from './platformClient';
 import { AlertTriangle, CheckCircle2, CircleStop, Clock3, CornerUpRight, Flag, Goal, Pause, Play, RefreshCw, Shield, Square, Undo2, Users, WifiOff } from 'lucide-react';
 
 type Fixture = { id: string; home: string; away: string; date: string; time: string; venue: string; status: string; homeScore?: number; awayScore?: number; matchdayStatus?: string };

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { api, auth, invitesClient, notifications, ws } from '@appdeploy/client';
+import { api, auth, invitesClient, notifications, ws } from './platformClient';
 import SeasonControl from './SeasonControl';
 import ClubRegistration from './ClubRegistration';
 import Finance, { Invoice } from './Finance';
