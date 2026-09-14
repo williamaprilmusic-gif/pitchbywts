@@ -1,0 +1,34 @@
+name: Patch Vercel client imports
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: ${{ !contains(github.event.head_commit.message, 'Vercel compatibility patch') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Replace AppDeploy browser SDK imports
+        run: |
+          sed -i "s|from '@appdeploy/client'|from './platformClient'|" src/App.tsx
+          sed -i "s|from '@appdeploy/client'|from './platformClient'|" src/LiveMatchCentre.tsx
+
+      - name: Commit compatibility patch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/App.tsx src/LiveMatchCentre.tsx
+          if git diff --cached --quiet; then
+            echo 'No import changes required.'
+            exit 0
+          fi
+          git commit -m 'fix: Vercel compatibility patch for browser SDK imports'
+          git push
