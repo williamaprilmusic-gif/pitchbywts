@@ -1,11 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { buildSync } from 'esbuild';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const targets = [
-  path.join(root, 'api', 'index.ts'),
-  path.join(root, 'backend', 'index.ts'),
   path.join(root, 'backend', 'realtime.ts'),
   path.join(root, 'backend', 'realtime-subscribers.ts'),
 ];
@@ -20,4 +19,16 @@ for (const file of targets) {
   if (updated !== original) fs.writeFileSync(file, updated);
 }
 
-console.log('Pitchline Vercel runtime preparation complete.');
+buildSync({
+  entryPoints: [path.join(root, 'api', 'index.ts')],
+  outfile: path.join(root, 'api', 'runtime.mjs'),
+  bundle: true,
+  platform: 'node',
+  format: 'esm',
+  target: 'node24',
+  packages: 'external',
+  legalComments: 'none',
+  sourcemap: false,
+});
+
+console.log('Pitchline Vercel runtime bundle generated.');
