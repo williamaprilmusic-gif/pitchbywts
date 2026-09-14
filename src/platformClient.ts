@@ -4,10 +4,11 @@ type RequestMethod = 'GET' | 'POST' | 'PUT' | 'DELETE';
 
 type LocalUser = {
     userId: string;
-    email?: string;
-    name?: string;
-    scope: string;
+    email: string;
+    name: string;
 };
+
+type Credentials = { email?: string; password?: string; name?: string };
 
 type WsConnection = {
     connectionId: string | null;
@@ -34,11 +35,7 @@ async function request<T = unknown>(method: RequestMethod, url: string, body?: u
 
     const text = await response.text();
     let data: unknown = null;
-    try {
-        data = text ? JSON.parse(text) : null;
-    } catch {
-        data = text;
-    }
+    try { data = text ? JSON.parse(text) : null; } catch { data = text; }
 
     if (!response.ok) {
         const message = typeof data === 'object' && data !== null && 'message' in data
@@ -48,7 +45,6 @@ async function request<T = unknown>(method: RequestMethod, url: string, body?: u
                 : `Request failed (${response.status})`;
         throw new Error(message);
     }
-
     return { data: data as T };
 }
 
@@ -57,19 +53,15 @@ function readStoredUser(): LocalUser | null {
         const raw = localStorage.getItem(USER_KEY);
         if (!raw) return null;
         const parsed = JSON.parse(raw) as LocalUser;
-        return parsed?.userId ? parsed : null;
-    } catch {
-        return null;
-    }
+        return parsed?.userId && parsed?.email ? parsed : null;
+    } catch { return null; }
 }
 
 function writeStoredUser(user: LocalUser | null) {
     try {
         if (user) localStorage.setItem(USER_KEY, JSON.stringify(user));
         else localStorage.removeItem(USER_KEY);
-    } catch {
-        // Optional browser storage failure should not break the app shell.
-    }
+    } catch { /* optional browser storage */ }
 }
 
 export const api = {
@@ -79,17 +71,42 @@ export const api = {
     delete: <T = unknown>(url: string, body?: unknown) => request<T>('DELETE', url, body),
 };
 
+async function promptCredentials() {
+    if (typeof window === 'undefined') return {};
+    const email = window.prompt('Pitchline email address') || '';
+    const password = window.prompt('Pitchline password') || '';
+    return { email, password };
+}
+
 export const auth = {
     isSignedIn: () => Boolean(readStoredUser()),
-    getUser: async (): Promise<LocalUser | null> => readStoredUser(),
+    getUser: async (): Promise<LocalUser | null> => {
+        try {
+            const response = await request<{ user: LocalUser }>('GET', '/api/auth/me');
+            writeStoredUser(response.data.user);
+            return response.data.user;
+        } catch {
+            writeStoredUser(null);
+            return null;
+        }
+    },
     getAccessToken: async (): Promise<string | null> => null,
-    signIn: async (): Promise<{ user: LocalUser; accessToken: string; expiresIn: number }> => {
-        throw Object.assign(new Error('Pitchline authentication is not configured on Vercel yet.'), {
-            code: 'auth_unavailable',
+    signIn: async (credentials: Credentials = {}): Promise<{ user: LocalUser; accessToken: string; expiresIn: number }> => {
+        const supplied = credentials.email || credentials.password ? credentials : await promptCredentials();
+        const response = await request<{ user: LocalUser; accessToken: string; expiresIn: number }>('POST', '/api/auth/sign-in', {
+            email: supplied.email,
+            password: supplied.password,
         });
+        writeStoredUser(response.data.user);
+        return response.data;
+    },
+    signUp: async (credentials: Credentials): Promise<{ user: LocalUser; accessToken: string; expiresIn: number }> => {
+        const response = await request<{ user: LocalUser; accessToken: string; expiresIn: number }>('POST', '/api/auth/sign-up', credentials);
+        writeStoredUser(response.data.user);
+        return response.data;
     },
     signOut: async (): Promise<void> => {
-        writeStoredUser(null);
+        try { await request('POST', '/api/auth/sign-out'); } finally { writeStoredUser(null); }
     },
 };
 
@@ -97,36 +114,20 @@ function parseInviteCode(): string | null {
     try {
         const queryCode = new URLSearchParams(window.location.search).get('invite');
         if (queryCode) return queryCode;
-    } catch {
-        // Ignore malformed browser URL access.
-    }
-    try {
-        return localStorage.getItem('pitchline.pendingInvite');
-    } catch {
-        return null;
-    }
+    } catch { /* ignore browser URL failures */ }
+    try { return localStorage.getItem('pitchline.pendingInvite'); } catch { return null; }
 }
 
 export const invitesClient = {
     getPendingCode: () => parseInviteCode(),
-    clearPendingCode: () => {
-        try {
-            localStorage.removeItem('pitchline.pendingInvite');
-        } catch {
-            // Ignore optional storage failures.
-        }
-    },
+    clearPendingCode: () => { try { localStorage.removeItem('pitchline.pendingInvite'); } catch { /* ignore */ } },
 };
 
 export const notifications = {
     subscribe: async (): Promise<void> => {
-        if (typeof Notification === 'undefined') {
-            throw new Error('Browser notifications are not supported.');
-        }
+        if (typeof Notification === 'undefined') throw new Error('Browser notifications are not supported.');
         const permission = await Notification.requestPermission();
-        if (permission !== 'granted') {
-            throw new Error('Notification permission was not granted.');
-        }
+        if (permission !== 'granted') throw new Error('Notification permission was not granted.');
     },
     onMessage: (_handler: (message: unknown) => void) => () => undefined,
 };
@@ -135,22 +136,15 @@ export const ws = {
     connect: (): WsConnection => {
         let closeHandler: () => void = () => undefined;
         let connected = true;
-        const fallbackRandomId = `${Date.now()}-${Math.random()}`;
-        const connectionId = `vercel-${crypto.randomUUID?.() || fallbackRandomId}`;
-        const ready = Promise.resolve();
-
+        const connectionId = `vercel-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`}`;
         return {
             connectionId,
-            ready,
+            ready: Promise.resolve(),
             onMessage: (_handler) => undefined,
-            onOpen: (_handler) => undefined,
+            onOpen: (handler) => queueMicrotask(handler),
             onClose: (handler) => { closeHandler = handler; },
-            onError: (_handler) => undefined,
-            disconnect: () => {
-                if (!connected) return;
-                connected = false;
-                closeHandler();
-            },
+            onError: (_error) => undefined,
+            disconnect: () => { if (!connected) return; connected = false; closeHandler(); },
         };
     },
 };
