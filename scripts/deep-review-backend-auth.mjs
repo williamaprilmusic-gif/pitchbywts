@@ -16,8 +16,10 @@ const assertions = [
   ['backend no longer imports AppDeploy SDK', !backend.includes("from '@appdeploy/sdk'")],
   ['realtime subscribers no longer import AppDeploy SDK', !realtime.includes("from '@appdeploy/sdk'")],
   ['frontend no longer depends on AppDeploy client import', !client.includes('@appdeploy/client')],
-  ['backend uses the Vercel compatibility runtime', backend.includes("from '../server/appdeployCompat'")],
-  ['Vercel static API entrypoint exists', existsSync('api/index.ts') && api.includes("await import('../backend/index')")],
+  ['backend uses the Vercel compatibility runtime', backend.includes("from '../server/appdeployCompat'") || backend.includes("from '../server/appdeployCompat.js'")],
+  ['Vercel static API entrypoint exists', existsSync('api/index.ts') && api.includes("await import('../backend/index.ts')")],
+  ['Vercel runtime JS auth module exists', existsSync('server/auth.js')],
+  ['Vercel runtime JS adapter module exists', existsSync('server/appdeployCompat.js')],
   ['Vercel API route rewrite exists', read('vercel.json').includes('"/api/:path*"') && read('vercel.json').includes('/api/index')],
   ['HttpOnly session cookie is enabled', auth.includes('HttpOnly') && auth.includes('SameSite=Lax')],
   ['session signing is HMAC based', auth.includes('createHmac') && auth.includes("sha256")],
@@ -29,6 +31,7 @@ const assertions = [
   ['adapter exposes list/get/add/update/delete operations', ['list', 'get', 'add', 'update', 'delete'].every(token => adapter.includes(`async ${token}`))],
   ['placeholder authentication error is gone', !client.includes('authentication is not configured on Vercel yet')],
   ['frontend credentials are sent as cookies', client.includes("credentials: 'include'")],
+  ['runtime build preparation exists', existsSync('scripts/prepare-vercel-runtime.mjs')],
 ];
 
 for (const [label, ok] of assertions) {
