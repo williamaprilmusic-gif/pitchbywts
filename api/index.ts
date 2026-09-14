@@ -1,5 +1,4 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { handler } from '../backend/index';
 import { clearSessionCookie, getSessionUser, passwordHash, setSessionCookie, verifyPassword, type AuthUser } from '../server/auth';
 import { db } from '../server/appdeployCompat';
 
@@ -9,10 +8,7 @@ type VercelRequest = IncomingMessage & {
   query?: Record<string, string | string[] | undefined>;
 };
 
-type VercelResponse = ServerResponse & {
-  status?: (code: number) => VercelResponse;
-  json?: (body: unknown) => void;
-};
+type VercelResponse = ServerResponse;
 
 const send = (res: VercelResponse, status: number, body: unknown) => {
   res.statusCode = status;
@@ -132,9 +128,9 @@ export default async function api(request: VercelRequest, response: VercelRespon
   const authHandled = await authEndpoint(request, response, pathname);
   if (authHandled !== false) return;
 
+  const { handler } = await import('../backend/index');
   const routeRequest = request as IncomingMessage & { body?: unknown };
   routeRequest.body = request.body;
   routeRequest.url = pathname;
-  const routeResponse = response as unknown as ServerResponse;
-  await handler(routeRequest, routeResponse);
+  await handler(routeRequest, response);
 }
