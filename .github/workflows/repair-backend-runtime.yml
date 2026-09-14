@@ -1,4 +1,4 @@
-name: Repair Pitchline backend runtime import
+name: Repair Pitchline backend runtime
 
 on:
   push:
@@ -15,27 +15,40 @@ jobs:
     steps:
       - name: Checkout migration branch
         uses: actions/checkout@v4
-      - name: Replace AppDeploy backend import
+      - name: Apply migration fixes
         shell: bash
         run: |
           set -euo pipefail
           python - <<'PY'
           from pathlib import Path
-          path = Path('backend/index.ts')
-          text = path.read_text()
-          old = "from '@appdeploy/sdk'"
-          new = "from '../server/appdeployCompat'"
-          if old not in text:
-              print('No AppDeploy backend import remains.')
-              raise SystemExit(0)
-          path.write_text(text.replace(old, new, 1))
+
+          backend = Path('backend/index.ts')
+          text = backend.read_text()
+          replacements = [
+              ("type PortalState={team:string;fixtureId:string|null;availability:string;notifications:boolean;payments:Array<Record<string,unknown>>;announcements:Array<Record<string,unknown>>};\n", ""),
+              ("  const ids=new Set(visiblePlayers.map(p=>p.playerId));\n", ""),
+              ("  'GET /api/player-registry':[async()=>{const rows=await listTable<Record<string,unknown>>('player_registry');if(rows.length)return json(rows);const players=await listTable<Player>('players');if(!players.length)return json([]);const seedRows=players.map((player,i)=>({playerId:`GFH-${String(i+1).padStart(6,'0')}`,name:player.name,dob:'2012-01-01',requestedAgeGroup:player.team.includes('U')?player.team.match(/U\\d+/)?.[0]||'U14':'U14',team:player.team,position:player.position,number:player.number,memberRef:player.memberRef,status:'Active',eligibility:'Eligible',registeredAt:Date.now()}));const ids=await db.add('player_registry',seedRows);return json(seedRows.map((row,i)=>({...row,id:ids[i]||`seed-${i}`}))) }]", "  'GET /api/player-registry':[async()=>{const rows=await listTable<Record<string,unknown>>('player_registry');if(rows.length)return json(rows);const players=await listTable<Player>('players');if(!players.length)return json([]);const seedRows=players.map((player,i)=>({playerId:`GFH-${String(i+1).padStart(6,'0')}`,name:player.name,dob:'2012-01-01',requestedAgeGroup:player.team.includes('U')?player.team.match(/U\\d+/)?.[0]||'U14':'U14',team:player.team,position:player.position,number:player.number,memberRef:player.memberRef,status:'Active',eligibility:'Eligible',registeredAt:Date.now()}));const insertedIds=await db.add('player_registry',seedRows);return json(seedRows.map((row,i)=>({...row,id:insertedIds[i]||`seed-${i}`}))) }])"),
+              ("  'POST /api/player-registry':[requireAuth(),requireAnyRole(['LFA Admin','Club']),scopedTeamAccess(async(ctx)=>String((ctx.body as {team?:string})?.team||'')),async({body})=>{", "  'POST /api/player-registry':[requireAuth(),requireAnyRole(['LFA Admin','Club']),scopedTeamAccess(async(ctx)=>String((ctx.body as {team?:string})?.team||'')),async({body})=>{"),
+          ]
+          for old, new in replacements:
+              if old in text:
+                  text = text.replace(old, new, 1)
+          # Fix strict type inference on local `next` object in player registration approval.
+          text = text.replace("let next={...old,status:requested};if(requested==='Approved'){", "let next:Record<string,unknown>={...old,status:requested};if(requested==='Approved'){", 1)
+          backend.write_text(text)
+
+          compat = Path('server/appdeployCompat.ts')
+          text = compat.read_text()
+          text = text.replace("      let result: HttpResult | void;\n", "      let result: HttpResult | void = undefined;\n", 1)
+          compat.write_text(text)
           PY
-          if git diff --quiet -- backend/index.ts; then
-            echo 'No backend change required.'
-            exit 0
-          fi
+
           git config user.name 'Pitchline Migration Agent'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add backend/index.ts
-          git commit -m 'fix: migrate backend off AppDeploy SDK'
+          git add backend/index.ts server/appdeployCompat.ts
+          if git diff --cached --quiet; then
+            echo 'No migration fixes required.'
+            exit 0
+          fi
+          git commit -m 'fix: clear strict TypeScript migration errors'
           git push
