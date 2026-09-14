@@ -1,4 +1,4 @@
-import { router, json, error, db, ws, requireAuth, type RouterMiddleware } from '@appdeploy/sdk';
+import { router, json, error, db, ws, requireAuth, type RouterMiddleware } from '../server/appdeployCompat';
 
 type Fixture = { id?: string; home: string; away: string; date: string; time: string; venue: string; status: string; homeScore?: number; awayScore?: number; matchdayStatus?: string; leagueId?: string; homeTeamId?: string; awayTeamId?: string };
 type Team = { id?: string; name: string; ageGroup: string; played: number; won: number; drawn: number; lost: number; gf: number; ga: number; pts: number };
