@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { api } from '@appdeploy/client';
+import { api } from './platformClient';
 import { Bell, Check, ChevronRight, CircleAlert, Megaphone, Send, Shield, Users } from 'lucide-react';
 
 type Communication={id:string;title:string;message:string;audience:string;audienceRef?:string;type:string;priority:'Normal'|'Important'|'Urgent';status:string;createdAt:number;publishedAt?:number;linkedType?:string;linkedId?:string};

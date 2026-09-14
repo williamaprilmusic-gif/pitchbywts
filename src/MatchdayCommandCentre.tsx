@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { api, ws } from '@appdeploy/client';
+import { api, ws } from './platformClient';
 import { CalendarDays, Check, ClipboardCheck, Clock3, Flag, Home, Radio, Shield, Trophy, Users } from 'lucide-react';
 
 type Fixture={id:string;home:string;away:string;date:string;time:string;venue:string;status:string;homeScore?:number;awayScore?:number;matchdayStatus?:string};

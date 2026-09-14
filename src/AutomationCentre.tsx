@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { api } from '@appdeploy/client';
+import { api } from './platformClient';
 import { Bell, Check, ChevronRight, CircleAlert, Play, RefreshCw, Shield, Sparkles, Users, X } from 'lucide-react';
 
 type Finding={id:string;severity:'Critical'|'High'|'Medium'|'Low';category:string;fixtureId?:string;title:string;detail:string;recommendation:string;action?:'confirm-appointment'|'publish-alert';actionLabel?:string};

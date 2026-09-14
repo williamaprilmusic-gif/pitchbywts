@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { api, ws } from '@appdeploy/client';
+import { api, ws } from './platformClient';
 import { CalendarDays, Check, GitBranch, Plus, RefreshCw, Shield, Trophy } from 'lucide-react';
 
 type Role='Supporter'|'Manager'|'Club'|'LFA Admin';

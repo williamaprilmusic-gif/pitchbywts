@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { api } from '@appdeploy/client';
+import { api } from './platformClient';
 import { BarChart3, CalendarDays, Check, CircleDollarSign, Download, FileText, Shield, Trophy, Users } from 'lucide-react';
 
 type Fixture={id:string;home:string;away:string;date:string;time:string;venue:string;status:string;homeScore?:number;awayScore?:number};

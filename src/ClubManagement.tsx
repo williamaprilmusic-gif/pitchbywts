@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { api, ws } from '@appdeploy/client';
+import { api, ws } from './platformClient';
 import { Check, ChevronRight, Edit3, Plus, Shield, Users, UserRound, ArrowRightLeft, Building2, Trophy } from 'lucide-react';
 
 type ClubProfile = { id:string; clubName:string; shortName:string; area:string; homeVenue:string; founded:string; colors:string; description:string };

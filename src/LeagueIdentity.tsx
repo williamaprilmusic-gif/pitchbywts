@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { api } from '@appdeploy/client';
+import { api } from './platformClient';
 import { Building2, Check, ChevronRight, GitBranch, RefreshCw, Shield, Users } from 'lucide-react';
 
 type Club={id:string;name:string;shortName:string;status:string;teams:Array<{id:string;teamId:string;name:string;ageGroup:string;clubId:string}>};

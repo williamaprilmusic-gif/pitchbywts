@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { api } from '@appdeploy/client';
+import { api } from './platformClient';
 import { AlertTriangle, CalendarDays, Check, ChevronRight, Clock3, Shield, Sparkles, TrendingUp } from 'lucide-react';
 
 type Risk='Critical'|'High'|'Medium'|'Low';

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { api, ws } from '@appdeploy/client';
+import { api, ws } from './platformClient';
 import { ArrowRightLeft, Check, ClipboardList, Shield, UserPlus, Users } from 'lucide-react';
 
 type RegistryPlayer = {

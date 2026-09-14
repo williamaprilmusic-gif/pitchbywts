@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { api, ws } from '@appdeploy/client';
+import { api, ws } from './platformClient';
 import { AlertTriangle, BellRing, Check, Clock3, History, Play, Shield, UserCheck } from 'lucide-react';
 
 type Role='Supporter'|'Manager'|'Club'|'LFA Admin';

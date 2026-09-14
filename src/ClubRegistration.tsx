@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { api } from '@appdeploy/client';
+import { api } from './platformClient';
 import { Check, ClipboardCheck, FileCheck2, Home, Plus, Shield, UserPlus, XCircle } from 'lucide-react';
 
 type Team={id:string;name:string;ageGroup:string;played:number;won:number;drawn:number;lost:number;gf:number;ga:number;pts:number};

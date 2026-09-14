@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api } from '@appdeploy/client';
+import { api } from './platformClient';
 import { Check, Shield, Users, X } from 'lucide-react';
 type Role='Supporter'|'Manager'|'Club'|'LFA Admin';
 type Request={id:string;userId:string;requestedRole:Role;status:string;createdAt:number};
