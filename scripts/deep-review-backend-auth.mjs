@@ -26,7 +26,7 @@ const assertions = [
   ['protected routes still use requireAuth', backend.includes('requireAuth()')],
   ['role isolation remains present', backend.includes('requireLfaAdmin') && backend.includes('requireAnyRole')],
   ['Postgres adapter uses DATABASE_URL', adapter.includes('DATABASE_URL') && adapter.includes('@neondatabase/serverless')],
-  ['adapter preserves list/get/add/update/delete semantics', ['list(', 'get(', 'add(', 'update(', 'delete('].every(token => adapter.includes(token))],
+  ['adapter exposes list/get/add/update/delete operations', ['list', 'get', 'add', 'update', 'delete'].every(token => new RegExp(`\\b${token}\\s*[:(]`).test(adapter))],
   ['placeholder authentication error is gone', !client.includes('authentication is not configured on Vercel yet')],
   ['frontend credentials are sent as cookies', client.includes("credentials: 'include'")],
 ];
@@ -48,7 +48,7 @@ try {
 
 try {
   execFileSync('npm', ['run', 'build'], { stdio: 'inherit', env: process.env });
-  console.log('PASS  Vite + Vercel function build');
+  console.log('PASS  Vite application build');
 } catch {
   fail('npm run build failed');
 }
