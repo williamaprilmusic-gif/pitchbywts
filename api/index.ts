@@ -161,7 +161,7 @@ export default async function api(request: VercelRequest, response: VercelRespon
     if (mutation) await writeAudit({ requestId: reqId, actorId: actor?.userId, actorEmail: actor?.email, method: request.method || 'GET', path: pathname, status: response.statusCode || 200, ip: requestIp(request), createdAt: Date.now() });
     return;
   }
-  const { handler } = await import('../backend/index');
+  const { handler } = await import('../backend/index.ts');
   const routeRequest = request as IncomingMessage & { body?: unknown };
   routeRequest.body = request.body;
   routeRequest.url = pathname;
