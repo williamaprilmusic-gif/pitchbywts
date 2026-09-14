@@ -1,3 +1,3 @@
-import api from './runtime.mjs';
+import api from '../server/apiRuntime.mjs';
 
 export default api;
