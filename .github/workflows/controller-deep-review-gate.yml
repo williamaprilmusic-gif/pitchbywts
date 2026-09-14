@@ -1,6 +1,8 @@
 name: Controller / Deep Reviewer PASS
 
 on:
+  push:
+    branches: [repair/vercel-backend-auth-migration]
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
@@ -25,7 +27,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "${GITHUB_HEAD_REF}" != "main"
+          test "${GITHUB_REF_NAME}" != "main"
           if grep -R "@appdeploy/sdk\|@appdeploy/client" backend src server api package.json --exclude-dir=node_modules; then
             echo 'Controller gate blocked: AppDeploy runtime dependency remains.'
             exit 1
