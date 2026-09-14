@@ -1,0 +1,48 @@
+name: Controller / Deep Reviewer PASS
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+jobs:
+  deep-review:
+    name: Controller / Deep Reviewer PASS
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout proposed fix
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Controller preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_HEAD_REF}" != "main"
+          if grep -R "@appdeploy/sdk\|@appdeploy/client" backend src server api package.json --exclude-dir=node_modules; then
+            echo 'Controller gate blocked: AppDeploy runtime dependency remains.'
+            exit 1
+          fi
+          test -f agent/instructions.md
+          test -f agent/subagents/diagnostician/instructions.md
+          test -f agent/subagents/solver/instructions.md
+          test -f agent/subagents/reviewer/instructions.md
+          echo 'Controller preflight PASS'
+
+      - name: Independent Deep Reviewer
+        run: node scripts/deep-review-backend-auth.mjs
+
+      - name: Gate result
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'CONTROLLER DECISION: APPROVED'
+          echo 'DEEP REVIEW: PASS'
+          echo 'MERGE TO MAIN: ELIGIBLE ONLY AFTER THIS REQUIRED CHECK PASSES'
