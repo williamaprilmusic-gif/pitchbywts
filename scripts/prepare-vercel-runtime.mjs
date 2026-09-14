@@ -20,8 +20,8 @@ for (const file of targets) {
 }
 
 buildSync({
-  entryPoints: [path.join(root, 'api', 'index.ts')],
-  outfile: path.join(root, 'api', 'runtime.mjs'),
+  entryPoints: [path.join(root, 'server', 'apiEntrypoint.ts')],
+  outfile: path.join(root, 'server', 'apiRuntime.mjs'),
   bundle: true,
   platform: 'node',
   format: 'esm',
