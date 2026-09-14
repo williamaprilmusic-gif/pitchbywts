@@ -1,0 +1,64 @@
+# Tests
+
+## Test 1 - Fast live match control and cross-user update [sanity]
+Viewport: mobile
+Covers: live match start, icon-based event entry, goal/card/offside controls, automatic match clock, realtime live-match updates, supporter read-only view
+Description: Verifies the primary matchday workflow can be operated quickly and the public live view receives the published state.
+Steps:
+1. Actor A signs in as LFA Admin and opens Live Match for a scheduled fixture.
+2. Actor A taps Start match.
+3. Actor A taps Goal, selects the scoring team and registered player, then confirms.
+4. Actor A taps Yellow, selects the team/player, then confirms.
+5. Actor A taps Offside, selects a team, then confirms.
+6. Actor B opens the same fixture as Supporter.
+Expected: The match is live with a running clock, the score reflects the goal, the timeline contains the card and offside events, and Actor B can see the live information without receiving administrative controls.
+
+## Test 2 - Admin workspace switching is instant while other roles stay assigned
+Viewport: desktop
+Covers: LFA Admin workspace preview switching, permanent admin role preservation, non-admin role request workflow
+Description: Verifies the single LFA Administrator can switch workspaces instantly without changing the permanent role while other users require approval.
+Steps:
+1. Sign in as the LFA Administrator.
+2. Switch the Workspace selector from LFA Admin to Supporter, then Manager, then Club.
+3. Sign out and sign in as a non-admin assigned role.
+4. Select a different workspace role.
+Expected: The administrator switches immediately for preview/testing and remains permanently assigned as LFA Admin; the non-admin is not switched and instead receives the access-request workflow.
+
+## Test 3 - Role data is scoped at the backend boundary
+Viewport: desktop
+Covers: Supporter league-wide fixture visibility, Manager club-scoped fixtures/players, Club club-scoped records, LFA Admin full dataset access
+Description: Verifies role filtering is applied to API-returned data rather than only to the navigation.
+Steps:
+1. Sign in as Supporter and open Fixtures & Results.
+2. Confirm league-wide fixtures are visible.
+3. Sign in as a Manager assigned to one club and open Fixtures & Results and Squad & Players.
+4. Confirm only the manager's club records are returned.
+5. Sign in as a Club user assigned to one club and confirm only that club's records are returned.
+6. Sign in as LFA Admin and confirm league-wide records are available.
+Expected: Supporter receives public league-wide fixture data, Manager and Club receive only their own club scope, and LFA Admin receives the complete league dataset.
+
+## Test 4 - Match correction, verification and audit integrity
+Viewport: desktop
+Covers: live event undo, audit trail, full-time verification lock, official match report
+Description: Verifies an authorised administrator can correct a live event before verification and then lock the official record.
+Steps:
+1. Sign in as LFA Admin and open a live fixture.
+2. Record a Goal event.
+3. Tap Undo last event.
+4. Record the correct event.
+5. End the match and verify the final record.
+6. Attempt another live-event change.
+Expected: The incorrect event is removed from the live score/timeline, an audit record is retained, verification locks the match, and further event changes are rejected.
+
+## Test 5 - Configurable age-group rules and mobile guardrails
+Viewport: mobile
+Covers: U12+ rule profile, offside availability, mobile live controls, large touch targets, offline event queue, protected event mutation, supporter read-only guardrail
+Description: Verifies the live controller exposes rule-appropriate events from U12 upward, remains usable on a phone, and a temporary network failure does not silently lose an event.
+Steps:
+1. Sign in as LFA Admin and open a live U14 fixture on mobile.
+2. Confirm the fixture shows U14 rules and Offside is available.
+3. Disconnect the device from the network.
+3. Tap an event icon and complete the quick event workflow.
+4. Reconnect the device.
+5. Open the same fixture as Supporter.
+Expected: The event is visibly queued while offline, synchronises after reconnection, and the Supporter can observe the event but cannot publish or undo match events.
