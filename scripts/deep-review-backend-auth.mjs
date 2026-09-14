@@ -9,7 +9,7 @@ const backend = read('backend/index.ts');
 const client = read('src/platformClient.ts');
 const auth = read('server/auth.ts');
 const adapter = read('server/appdeployCompat.ts');
-const api = read('api/index.ts');
+const api = read('api/index.js');
 const realtime = read('backend/realtime-subscribers.ts');
 
 const assertions = [
@@ -17,12 +17,13 @@ const assertions = [
   ['realtime subscribers no longer import AppDeploy SDK', !realtime.includes("from '@appdeploy/sdk'")],
   ['frontend no longer depends on AppDeploy client import', !client.includes('@appdeploy/client')],
   ['backend uses the Vercel compatibility runtime', backend.includes("from '../server/appdeployCompat'") || backend.includes("from '../server/appdeployCompat.js'")],
-  ['Vercel static API entrypoint exists', existsSync('api/index.ts') && api.includes("await import('../backend/index.ts')")],
+  ['Vercel bundled API entrypoint exists', existsSync('api/index.js') && api.includes("./runtime.mjs")],
   ['Vercel runtime JS auth module exists', existsSync('server/auth.js')],
   ['Vercel runtime JS adapter module exists', existsSync('server/appdeployCompat.js')],
-  ['Vercel API route rewrite exists', read('vercel.json').includes('"/api/:path*"') && read('vercel.json').includes('/api/index')],
+  ['Vercel runtime build script exists', existsSync('scripts/prepare-vercel-runtime.mjs')],
+  ['Vercel API route rewrite exists', read('vercel.json').includes('"/api/:path*"') && read('vercel.json').includes('/api/index.js')],
   ['HttpOnly session cookie is enabled', auth.includes('HttpOnly') && auth.includes('SameSite=Lax')],
-  ['session signing is HMAC based', auth.includes('createHmac') && auth.includes("sha256")],
+  ['session signing is HMAC based', auth.includes('createHmac') && auth.includes('sha256')],
   ['password hashing is scrypt based', auth.includes('scryptSync')],
   ['session secret is mandatory', auth.includes('PITCHLINE_SESSION_SECRET') && auth.includes('at least 32 characters')],
   ['protected routes still use requireAuth', backend.includes('requireAuth()')],
@@ -31,7 +32,6 @@ const assertions = [
   ['adapter exposes list/get/add/update/delete operations', ['list', 'get', 'add', 'update', 'delete'].every(token => adapter.includes(`async ${token}`))],
   ['placeholder authentication error is gone', !client.includes('authentication is not configured on Vercel yet')],
   ['frontend credentials are sent as cookies', client.includes("credentials: 'include'")],
-  ['runtime build preparation exists', existsSync('scripts/prepare-vercel-runtime.mjs')],
 ];
 
 for (const [label, ok] of assertions) {
