@@ -14,7 +14,7 @@ permissions:
 jobs:
   restore-source:
     runs-on: ubuntu-latest
-    if: "github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[extract-source]')"
+    if: "github.event_name == 'workflow_dispatch' || (!contains(github.event.head_commit.message, '[extract-source]') && !contains(github.event.head_commit.message, 'match integrity'))"
 
     steps:
       - name: Checkout repository
@@ -34,57 +34,24 @@ jobs:
           mkdir -p /tmp/pitchline-source
           unzip -q "$ZIP" -d /tmp/pitchline-source
 
-          echo "Extracted files:"
-          find /tmp/pitchline-source -maxdepth 3 -type f | head -80
-
           SOURCE_ROOT=""
-
           while IFS= read -r candidate; do
-            if [ -f "$candidate/package.json" ] && [ -d "$candidate/src" ]; then
-              SOURCE_ROOT="$candidate"
-              break
-            fi
+            if [ -f "$candidate/package.json" ] && [ -d "$candidate/src" ]; then SOURCE_ROOT="$candidate"; break; fi
           done < <(find /tmp/pitchline-source -type d -print)
+          if [ -z "$SOURCE_ROOT" ] && [ -f "/tmp/pitchline-source/package.json" ] && [ -d "/tmp/pitchline-source/src" ]; then SOURCE_ROOT="/tmp/pitchline-source"; fi
+          if [ -z "$SOURCE_ROOT" ]; then echo "Could not locate the Vite project root in the source ZIP."; exit 1; fi
 
-          if [ -z "$SOURCE_ROOT" ] && [ -f "/tmp/pitchline-source/package.json" ] && [ -d "/tmp/pitchline-source/src" ]; then
-            SOURCE_ROOT="/tmp/pitchline-source"
-          fi
-
-          if [ -z "$SOURCE_ROOT" ]; then
-            echo "Could not locate the Vite project root in the source ZIP."
-            find /tmp/pitchline-source -maxdepth 5 -print
-            exit 1
-          fi
-
-          echo "Using source root: $SOURCE_ROOT"
-
-          rsync -a --delete \
-            --exclude='.git/' \
-            --exclude='.github/' \
-            "$SOURCE_ROOT/" ./
-
-          if [ ! -f "src/main.tsx" ]; then
-            echo "ERROR: source snapshot did not restore src/main.tsx"
-            find src -maxdepth 2 -type f -print 2>/dev/null || true
-            exit 1
-          fi
-
+          rsync -a --delete --exclude='.git/' --exclude='.github/' "$SOURCE_ROOT/" ./
+          test -f src/main.tsx
           test -f package.json
           test -f index.html
-          echo "Restored source successfully."
 
       - name: Commit restored source
         shell: bash
         run: |
           set -euo pipefail
-
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
           git add -A
-          git commit -m "[extract-source] Restore complete Pitchline Vite source tree" || {
-            echo "No source changes to commit."
-            exit 0
-          }
-
+          git commit -m "[extract-source] Restore complete Pitchline Vite source tree" || exit 0
           git push origin HEAD:main
