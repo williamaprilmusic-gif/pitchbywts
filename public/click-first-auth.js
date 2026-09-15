@@ -103,7 +103,8 @@
     const button = event.target?.closest?.('button');
     if (!button) return;
     const text = String(button.innerText || button.getAttribute('aria-label') || '').trim().toLowerCase();
-    if (!/^sign in$/.test(text)) return;
+    const isIconOnlyTopbarLogin = button.matches('.top-actions .icon-btn:not(.notification-button):not(.mobile-menu)') && !text;
+    if (!/^sign in$/.test(text) && !isIconOnlyTopbarLogin) return;
     const sidebarOrTopbar = button.closest('.top-actions, .portal-hero, .pitch-auth-modal');
     if (!sidebarOrTopbar || button.closest('.pitch-auth-modal')) return;
     event.preventDefault();
