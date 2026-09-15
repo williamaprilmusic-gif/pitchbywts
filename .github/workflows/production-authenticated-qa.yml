@@ -1,6 +1,9 @@
 name: Pitchline One-Click Authenticated Production QA
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       base_url:
@@ -17,7 +20,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  PITCHLINE_BASE_URL: ${{ inputs.base_url }}
+  PITCHLINE_BASE_URL: ${{ inputs.base_url || 'https://pitchline-theta.vercel.app' }}
   PITCHLINE_QA_EMAIL: ${{ secrets.PITCHLINE_QA_EMAIL }}
   PITCHLINE_QA_PASSWORD: ${{ secrets.PITCHLINE_QA_PASSWORD }}
 
