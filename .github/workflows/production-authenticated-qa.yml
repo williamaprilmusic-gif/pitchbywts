@@ -1,0 +1,244 @@
+name: Pitchline One-Click Authenticated Production QA
+
+on:
+  workflow_dispatch:
+    inputs:
+      cleanup:
+        description: 'Restore team standings and delete the temporary QA records'
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pitchline-production-qa
+  cancel-in-progress: false
+
+env:
+  BASE_URL: https://pitchline-william-april.vercel.app
+
+jobs:
+  authenticated-production-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Validate QA secrets
+        env:
+          QA_EMAIL: ${{ secrets.PITCHLINE_QA_EMAIL }}
+          QA_PASSWORD: ${{ secrets.PITCHLINE_QA_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$QA_EMAIL" || { echo 'Missing GitHub Secret: PITCHLINE_QA_EMAIL'; exit 1; }
+          test -n "$QA_PASSWORD" || { echo 'Missing GitHub Secret: PITCHLINE_QA_PASSWORD'; exit 1; }
+
+      - name: Login and create isolated QA fixture
+        id: setup
+        env:
+          QA_EMAIL: ${{ secrets.PITCHLINE_QA_EMAIL }}
+          QA_PASSWORD: ${{ secrets.PITCHLINE_QA_PASSWORD }}
+        run: |
+          set -euo pipefail
+          rm -f /tmp/pitchline.cookies
+
+          login_code=$(curl --silent --show-error --output /tmp/login.json --write-out '%{http_code}' \
+            --cookie-jar /tmp/pitchline.cookies --max-time 30 \
+            -X POST "$BASE_URL/api/auth/sign-in" \
+            -H 'Content-Type: application/json' \
+            --data "$(node -e 'process.stdout.write(JSON.stringify({email:process.env.QA_EMAIL,password:process.env.QA_PASSWORD}))')")
+          test "$login_code" = "200" || { cat /tmp/login.json; exit 1; }
+          node -e 'const x=require("/tmp/login.json"); if(x.role!=="LFA Admin") { console.error("Authenticated account is not LFA Admin:",x.role); process.exit(1) }'
+
+          curl --fail --silent --show-error --cookie /tmp/pitchline.cookies --max-time 30 "$BASE_URL/api/auth/me" > /tmp/me.json
+          node -e 'const x=require("/tmp/me.json"); if(!x.user||x.role!=="LFA Admin") process.exit(1)'
+
+          curl --fail --silent --show-error --cookie /tmp/pitchline.cookies --max-time 30 "$BASE_URL/api/teams" > /tmp/teams-before.json
+          curl --fail --silent --show-error --cookie /tmp/pitchline.cookies --max-time 30 "$BASE_URL/api/players" > /tmp/players.json
+
+          node <<'NODE'
+          const fs=require('fs');
+          const teams=require('/tmp/teams-before.json');
+          const players=require('/tmp/players.json');
+          const home=teams.find(t=>String(t.name)==='Liverpool Portland U14');
+          const away=teams.find(t=>String(t.name)==='Bayhill United U14');
+          if(!home||!away||!home.id||!away.id) throw new Error('Required QA teams not found');
+          const homePlayers=players.filter(p=>String(p.team)==='Liverpool Portland U14');
+          const awayPlayers=players.filter(p=>String(p.team)==='Bayhill United U14');
+          if(homePlayers.length<2||awayPlayers.length<2) throw new Error('Not enough registered players for QA team sheets');
+          const q={
+            home,away,
+            homePlayers:homePlayers.slice(0,4),
+            awayPlayers:awayPlayers.slice(0,4),
+            started:Date.now()
+          };
+          fs.writeFileSync('/tmp/qa-context.json',JSON.stringify(q));
+          NODE
+
+          node <<'NODE' > /tmp/create-fixture.json
+          const q=require('/tmp/qa-context.json');
+          const stamp=new Date().toISOString().replace(/[-:.TZ]/g,'').slice(0,14);
+          process.stdout.write(JSON.stringify({
+            home:q.home.name, away:q.away.name,
+            homeTeamId:q.home.id, awayTeamId:q.away.id,
+            leagueId:q.home.leagueId,
+            date:new Date(Date.now()+86400000).toISOString().slice(0,10),
+            time:'23:45', venue:'Pitchline QA Temporary Venue',
+            status:'upcoming', matchdayStatus:'Scheduled',
+            name:`QA Production ${stamp}`
+          }));
+          NODE
+          code=$(curl --silent --show-error --output /tmp/fixture-response.json --write-out '%{http_code}' \
+            --cookie /tmp/pitchline.cookies --max-time 30 -X POST "$BASE_URL/api/fixtures" \
+            -H 'Content-Type: application/json' --data-binary @/tmp/create-fixture.json)
+          test "$code" = "200" || test "$code" = "201" || { cat /tmp/fixture-response.json; exit 1; }
+          node -e 'const x=require("/tmp/fixture-response.json"); const f=x.fixture||x; if(!f.id) { console.error(x); process.exit(1) } console.log(f.id)' > /tmp/fixture-id
+          echo "fixture_id=$(cat /tmp/fixture-id)" >> "$GITHUB_OUTPUT"
+
+          fixture=$(cat /tmp/fixture-id)
+          node -e 'const q=require("/tmp/qa-context.json"); q.fixtureId=process.argv[1]; require("fs").writeFileSync("/tmp/qa-context.json",JSON.stringify(q))' "$fixture"
+
+          node <<'NODE' > /tmp/official.json
+          process.stdout.write(JSON.stringify({name:'Pitchline QA Referee',role:'Referee',availability:'Available'}));
+          NODE
+          code=$(curl --silent --show-error --output /tmp/official-response.json --write-out '%{http_code}' \
+            --cookie /tmp/pitchline.cookies --max-time 30 -X POST "$BASE_URL/api/officials" \
+            -H 'Content-Type: application/json' --data-binary @/tmp/official.json)
+          test "$code" = "200" || test "$code" = "201" || { cat /tmp/official-response.json; exit 1; }
+          node -e 'const x=require("/tmp/official-response.json"); const o=x.official||x; if(!o.id) { console.error(x); process.exit(1) } console.log(o.id)' > /tmp/official-id
+
+          fixture=$(cat /tmp/fixture-id); official=$(cat /tmp/official-id)
+          curl --fail --silent --show-error --cookie /tmp/pitchline.cookies --max-time 30 -X POST "$BASE_URL/api/appointments" \
+            -H 'Content-Type: application/json' \
+            --data "$(node -e 'process.stdout.write(JSON.stringify({fixtureId:process.argv[1],officialId:process.argv[2],role:"Referee",status:"Assigned"}))' "$fixture" "$official")" > /tmp/appointment-response.json
+
+          node <<'NODE' > /tmp/home-sheet.json
+          const q=require('/tmp/qa-context.json'); const p=q.homePlayers;
+          process.stdout.write(JSON.stringify({fixtureId:q.fixtureId,formation:'4-3-3',captainRef:p[0].memberRef,starters:p.map(x=>x.memberRef),substitutes:p.slice(2).map(x=>x.memberRef),attendance:p.map(x=>x.memberRef)}));
+          NODE
+          node <<'NODE' > /tmp/away-sheet.json
+          const q=require('/tmp/qa-context.json'); const p=q.awayPlayers;
+          process.stdout.write(JSON.stringify({fixtureId:q.fixtureId,formation:'4-3-3',captainRef:p[0].memberRef,starters:p.map(x=>x.memberRef),substitutes:p.slice(2).map(x=>x.memberRef),attendance:p.map(x=>x.memberRef)}));
+          NODE
+          curl --fail --silent --show-error --cookie /tmp/pitchline.cookies --max-time 30 -X POST "$BASE_URL/api/team-sheets" -H 'Content-Type: application/json' --data-binary @/tmp/home-sheet.json > /tmp/home-sheet-response.json
+          curl --fail --silent --show-error --cookie /tmp/pitchline.cookies --max-time 30 -X POST "$BASE_URL/api/team-sheets" -H 'Content-Type: application/json' --data-binary @/tmp/away-sheet.json > /tmp/away-sheet-response.json
+
+          fixture=$(cat /tmp/fixture-id)
+          curl --fail --silent --show-error --cookie /tmp/pitchline.cookies --max-time 30 -X POST "$BASE_URL/api/matchday-readiness" \
+            -H 'Content-Type: application/json' \
+            --data "$(node -e 'process.stdout.write(JSON.stringify({fixtureId:process.argv[1],venueReady:true,officialsReady:true,teamSheetReady:true,resultReady:false,notes:"Automated production QA" ,updatedAt:Date.now()}))' "$fixture")" > /tmp/readiness.json
+
+          echo "QA fixture prepared: $fixture"
+
+      - name: Start match and verify live state
+        env:
+          FIXTURE_ID: ${{ steps.setup.outputs.fixture_id }}
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --cookie /tmp/pitchline.cookies --max-time 30 -X POST "$BASE_URL/api/live-match/start" \
+            -H 'Content-Type: application/json' --data "{\"fixtureId\":\"$FIXTURE_ID\"}" > /tmp/start.json
+          node -e 'const x=require("/tmp/start.json"); if(x.status!=="Live") { console.error(x); process.exit(1) }'
+          curl --fail --silent --show-error --cookie /tmp/pitchline.cookies --max-time 30 "$BASE_URL/api/live-match/$FIXTURE_ID" > /tmp/live-start.json
+          node -e 'const x=require("/tmp/live-start.json"); if(x.status!=="Live") process.exit(1)'
+
+      - name: Record goal, card and substitution through production API
+        env:
+          FIXTURE_ID: ${{ steps.setup.outputs.fixture_id }}
+        run: |
+          set -euo pipefail
+          node <<'NODE' > /tmp/events.json
+          const q=require('/tmp/qa-context.json');
+          const home=q.homePlayers, away=q.awayPlayers;
+          const f=q.fixtureId;
+          process.stdout.write(JSON.stringify([
+            {fixtureId:f,type:'Goal',team:q.home.name,player:home[0].memberRef,minute:1,clockSeconds:5},
+            {fixtureId:f,type:'Yellow card',team:q.away.name,player:away[0].memberRef,minute:2,clockSeconds:10},
+            {fixtureId:f,type:'Substitution',team:q.home.name,playerOffRef:home[2].memberRef,playerOnRef:home[3].memberRef,minute:3,clockSeconds:15}
+          ]));
+          NODE
+          node <<'NODE'
+          const fs=require('fs'), cp=require('child_process');
+          const events=require('/tmp/events.json');
+          for(const event of events){
+            const out=cp.execFileSync('curl',['--fail','--silent','--show-error','--cookie','/tmp/pitchline.cookies','--max-time','30','-X','POST',`${process.env.BASE_URL}/api/live-match/events-v2`,'-H','Content-Type: application/json','--data',JSON.stringify(event)],{encoding:'utf8'});
+            const x=JSON.parse(out); if(x.status!=='Live') throw new Error('Live event response was not Live: '+out);
+          }
+          NODE
+          curl --fail --silent --show-error --cookie /tmp/pitchline.cookies --max-time 30 "$BASE_URL/api/live-match/$FIXTURE_ID" > /tmp/live-events.json
+          node -e 'const x=require("/tmp/live-events.json"); if((x.events||[]).length!==3||x.homeScore!==1||x.awayScore!==0) { console.error(x); process.exit(1) }'
+
+      - name: Finish, verify and confirm standings persistence
+        env:
+          FIXTURE_ID: ${{ steps.setup.outputs.fixture_id }}
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --cookie /tmp/pitchline.cookies --max-time 30 -X POST "$BASE_URL/api/live-match/finish" \
+            -H 'Content-Type: application/json' --data "{\"fixtureId\":\"$FIXTURE_ID\"}" > /tmp/finish.json
+          node -e 'const x=require("/tmp/finish.json"); if(x.status!=="Full time") { console.error(x); process.exit(1) }'
+          curl --fail --silent --show-error --cookie /tmp/pitchline.cookies --max-time 30 -X POST "$BASE_URL/api/live-match/verify" \
+            -H 'Content-Type: application/json' --data "{\"fixtureId\":\"$FIXTURE_ID\"}" > /tmp/verify.json
+
+          curl --fail --silent --show-error --cookie /tmp/pitchline.cookies --max-time 30 "$BASE_URL/api/live-match/$FIXTURE_ID/report" > /tmp/report.json
+          node -e 'const x=require("/tmp/report.json"); if(!x) process.exit(1)'
+
+          curl --fail --silent --show-error --cookie /tmp/pitchline.cookies --max-time 30 "$BASE_URL/api/teams" > /tmp/teams-after.json
+          node <<'NODE'
+          const before=require('/tmp/teams-before.json'), after=require('/tmp/teams-after.json');
+          const h0=before.find(x=>x.name==='Liverpool Portland U14'), a0=before.find(x=>x.name==='Bayhill United U14');
+          const h1=after.find(x=>x.name==='Liverpool Portland U14'), a1=after.find(x=>x.name==='Bayhill United U14');
+          if(!h1||!a1) throw new Error('Standings rows missing after verification');
+          if(Number(h1.played)!==Number(h0.played)+1 || Number(h1.won)!==Number(h0.won)+1 || Number(h1.pts)!==Number(h0.pts)+3) throw new Error(`Home standings did not recalculate: before=${JSON.stringify(h0)} after=${JSON.stringify(h1)}`);
+          if(Number(a1.played)!==Number(a0.played)+1 || Number(a1.lost)!==Number(a0.lost)+1 || Number(a1.pts)!==Number(a0.pts)) throw new Error(`Away standings did not recalculate: before=${JSON.stringify(a0)} after=${JSON.stringify(a1)}`);
+          NODE
+
+      - name: Logout, login again and prove persistence
+        env:
+          QA_EMAIL: ${{ secrets.PITCHLINE_QA_EMAIL }}
+          QA_PASSWORD: ${{ secrets.PITCHLINE_QA_PASSWORD }}
+          FIXTURE_ID: ${{ steps.setup.outputs.fixture_id }}
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --cookie /tmp/pitchline.cookies --max-time 30 -X POST "$BASE_URL/api/auth/sign-out" > /tmp/signout.json
+          rm -f /tmp/pitchline.cookies
+          login_code=$(curl --silent --show-error --output /tmp/login2.json --write-out '%{http_code}' --cookie-jar /tmp/pitchline.cookies --max-time 30 -X POST "$BASE_URL/api/auth/sign-in" -H 'Content-Type: application/json' --data "$(node -e 'process.stdout.write(JSON.stringify({email:process.env.QA_EMAIL,password:process.env.QA_PASSWORD}))')")
+          test "$login_code" = "200"
+          node -e 'const x=require("/tmp/login2.json"); if(x.role!=="LFA Admin") process.exit(1)'
+          curl --fail --silent --show-error --cookie /tmp/pitchline.cookies --max-time 30 "$BASE_URL/api/live-match/$FIXTURE_ID" > /tmp/live-persisted.json
+          node -e 'const x=require("/tmp/live-persisted.json"); if(x.status!=="Full time"||x.homeScore!==1||x.awayScore!==0||(x.events||[]).length!==3) { console.error(x); process.exit(1) }'
+          curl --fail --silent --show-error --cookie /tmp/pitchline.cookies --max-time 30 "$BASE_URL/api/teams" > /tmp/teams-persisted.json
+          node -e 'const x=require("/tmp/teams-persisted.json"); const h=x.find(t=>t.name==="Liverpool Portland U14"); if(!h||Number(h.pts)<22) process.exit(1)'
+          echo 'Authenticated production QA persistence check: PASS'
+
+      - name: Cleanup temporary QA fixture and restore standings
+        if: ${{ inputs.cleanup == true && always() }}
+        env:
+          FIXTURE_ID: ${{ steps.setup.outputs.fixture_id }}
+        run: |
+          set -euo pipefail
+          if [ -z "${FIXTURE_ID:-}" ]; then echo 'No QA fixture was created; nothing to clean.'; exit 0; fi
+          echo 'Attempting production QA cleanup for fixture:' "$FIXTURE_ID"
+          # Restore the two team rows to their pre-QA snapshot before deleting temporary records.
+          node <<'NODE' > /tmp/restore-teams.json
+          const before=require('/tmp/teams-before.json');
+          const names=['Liverpool Portland U14','Bayhill United U14'];
+          process.stdout.write(JSON.stringify(before.filter(x=>names.includes(x.name))));
+          NODE
+          node <<'NODE'
+          const fs=require('fs'), cp=require('child_process');
+          const teams=require('/tmp/restore-teams.json');
+          for(const team of teams){
+            if(!team.id) continue;
+            try { cp.execFileSync('curl',['--fail','--silent','--show-error','--cookie','/tmp/pitchline.cookies','--max-time','30','-X','PUT',`${process.env.BASE_URL}/api/teams/${team.id}`,'-H','Content-Type: application/json','--data',JSON.stringify(team)],{stdio:'pipe'}); console.log('Restored',team.name); }
+            catch(e){ console.error('Could not restore',team.name); throw e; }
+          }
+          NODE
+          for endpoint in \
+            "/api/appointments" \
+            "/api/team-sheets" \
+            "/api/matchday-readiness" \
+            "/api/live-match/$FIXTURE_ID" \
+            "/api/fixtures/$FIXTURE_ID"; do
+            code=$(curl --silent --show-error --output /tmp/delete.json --write-out '%{http_code}' --cookie /tmp/pitchline.cookies --max-time 30 -X DELETE "$BASE_URL$endpoint")
+            case "$code" in 200|204|404) echo "Cleanup $endpoint: $code";; *) cat /tmp/delete.json; echo "Cleanup failed for $endpoint"; exit 1;; esac
+          done
+          echo 'Production QA cleanup completed.'
