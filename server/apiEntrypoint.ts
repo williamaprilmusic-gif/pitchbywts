@@ -46,10 +46,13 @@ async function getUserRole(userId: string) {
 }
 
 async function getProtectedInvoices(user: AuthUser) {
-  const role = await getUserRole(user.userId);
+  const roleRows = await db.list<RecordShape>('user_roles', { limit: 5000 });
+  const roleRecord = roleRows.items.find(item => String(item.userId) === user.userId);
+  const role = String(roleRecord?.role || 'Supporter');
   if (!['LFA Admin', 'Club'].includes(role)) return { status: 403, body: { error: 'Finance access is restricted to LFA Admin and Club roles.' } };
   const rows = (await db.list<RecordShape>('invoices', { limit: 5000 })).items;
-  const scoped = role === 'LFA Admin' ? rows : rows.filter(row => String(row.club || '').trim() !== '' && String(row.club || '').trim().toLowerCase() === String((await db.list<RecordShape>('user_roles', { limit: 5000 })).items.find(item => String(item.userId) === user.userId)?.club || '').trim().toLowerCase());
+  const clubScope = String(roleRecord?.club || '').trim().toLowerCase();
+  const scoped = role === 'LFA Admin' ? rows : rows.filter(row => clubScope && String(row.club || '').trim().toLowerCase() === clubScope);
   const seen = new Set<string>();
   const items = scoped.filter(row => {
     const key = [row.memberRef, row.club, row.item, row.amount, row.dueDate].map(value => String(value ?? '').trim().toLowerCase()).join('|');
