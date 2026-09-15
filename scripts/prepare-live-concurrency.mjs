@@ -19,16 +19,29 @@ const apiPath = 'server/apiEntrypoint.ts';
 let api = fs.readFileSync(apiPath, 'utf8');
 if (!api.includes('acquireLiveLock')) {
   const duplicateMarker = "  if (request.method === 'POST' && pathname === '/api/live-match/events-v2' && actor && await isLfaAdmin(actor.userId)) {";
-  const lockCode = `  const liveMutationRoutes = ['/api/live-match/events-v2','/api/live-match/events','/api/live-match/undo','/api/live-match/start','/api/live-match/pause','/api/live-match/resume','/api/live-match/finish'];\n  const liveMutation = mutation && liveMutationRoutes.includes(pathname);\n  const liveFixtureId = String(requestBody.fixtureId || '').trim();\n  const liveLockOwner = actor ? \`${reqId}:\${actor.userId}\` : '';\n  let liveLockAcquired = false;\n  if (liveMutation && actor && liveFixtureId) {\n    liveLockAcquired = await db.acquireLiveLock(liveFixtureId, liveLockOwner, 30000);\n    if (!liveLockAcquired) {\n      send(response, 409, { error: 'Live match is busy. Another controller is updating this fixture; please retry.' , code: 'live_match_busy', fixtureId: liveFixtureId }, reqId);\n      return;\n    }\n  }\n`;
+  const lockCode = [
+    "  const liveMutationRoutes = ['/api/live-match/events-v2','/api/live-match/events','/api/live-match/undo','/api/live-match/start','/api/live-match/pause','/api/live-match/resume','/api/live-match/finish'];",
+    "  const liveMutation = mutation && liveMutationRoutes.includes(pathname);",
+    "  const liveFixtureId = String(requestBody.fixtureId || '').trim();",
+    "  const liveLockOwner = actor ? `${reqId}:${actor.userId}` : '';",
+    "  let liveLockAcquired = false;",
+    "  if (liveMutation && actor && liveFixtureId) {",
+    "    liveLockAcquired = await db.acquireLiveLock(liveFixtureId, liveLockOwner, 30000);",
+    "    if (!liveLockAcquired) {",
+    "      send(response, 409, { error: 'Live match is busy. Another controller is updating this fixture; please retry.', code: 'live_match_busy', fixtureId: liveFixtureId }, reqId);",
+    "      return;",
+    "    }",
+    "  }",
+    "",
+  ].join('\\n');
   if (!api.includes(duplicateMarker)) throw new Error('Concurrency patch: duplicate marker not found');
   api = api.replace(duplicateMarker, `${lockCode}${duplicateMarker}`);
   const earlyReturn = "        send(response, 200, current, reqId);\n        await writeAudit({ requestId: reqId, actorId: actor.userId, actorEmail: actor.email, method: request.method || 'POST', path: pathname, outcome: 'idempotent-replay', duplicateEventId: duplicate.id, fixtureId, ip: requestIp(request) });\n        return;";
   const earlyNew = "        send(response, 200, current, reqId);\n        await writeAudit({ requestId: reqId, actorId: actor.userId, actorEmail: actor.email, method: request.method || 'POST', path: pathname, outcome: 'idempotent-replay', duplicateEventId: duplicate.id, fixtureId, ip: requestIp(request) });\n        if (liveLockAcquired) { await db.releaseLiveLock(liveFixtureId, liveLockOwner); liveLockAcquired = false; }\n        return;";
   if (!api.includes(earlyReturn)) throw new Error('Concurrency patch: idempotent return not found');
   api = api.replace(earlyReturn, earlyNew);
-  const syncMarker = "  if (response.statusCode < 400 && request.method === 'POST' && ['/api/live-match/start','/api/live-match/pause','/api/live-match/resume','/api/live-match/finish'].includes(pathname)) {";
   const releaseMarker = "  if (mutation) await writeAudit({ requestId: reqId, actorId: actor?.userId, actorEmail: actor?.email, method: request.method || 'GET', path: pathname, status: response.statusCode || 200, ip: requestIp(request) });";
-  if (!api.includes(syncMarker) || !api.includes(releaseMarker)) throw new Error('Concurrency patch: post-handler markers not found');
+  if (!api.includes(releaseMarker)) throw new Error('Concurrency patch: post-handler marker not found');
   api = api.replace(releaseMarker, "  if (liveLockAcquired) { await db.releaseLiveLock(liveFixtureId, liveLockOwner); liveLockAcquired = false; }\n" + releaseMarker);
   fs.writeFileSync(apiPath, api);
 }
