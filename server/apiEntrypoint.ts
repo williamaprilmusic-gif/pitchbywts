@@ -45,6 +45,21 @@ async function getUserRole(userId: string) {
   return String(found?.role || 'Supporter');
 }
 
+async function getProtectedInvoices(user: AuthUser) {
+  const role = await getUserRole(user.userId);
+  if (!['LFA Admin', 'Club'].includes(role)) return { status: 403, body: { error: 'Finance access is restricted to LFA Admin and Club roles.' } };
+  const rows = (await db.list<RecordShape>('invoices', { limit: 5000 })).items;
+  const scoped = role === 'LFA Admin' ? rows : rows.filter(row => String(row.club || '').trim() !== '' && String(row.club || '').trim().toLowerCase() === String((await db.list<RecordShape>('user_roles', { limit: 5000 })).items.find(item => String(item.userId) === user.userId)?.club || '').trim().toLowerCase());
+  const seen = new Set<string>();
+  const items = scoped.filter(row => {
+    const key = [row.memberRef, row.club, row.item, row.amount, row.dueDate].map(value => String(value ?? '').trim().toLowerCase()).join('|');
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).map(row => ({ ...row, status: String(row.status || 'Due') }));
+  return { status: 200, body: items };
+}
+
 function liveEventFingerprint(input: RecordShape) {
   return JSON.stringify({
     fixtureId: String(input.fixtureId || '').trim(),
@@ -167,6 +182,12 @@ export default async function api(request: VercelRequest, response: VercelRespon
   }
   const handled = await authEndpoint(request, response, pathname, reqId);
   if (handled) { if (mutation) await writeAudit({ requestId: reqId, actorId: actor?.userId, actorEmail: actor?.email, method: request.method || 'GET', path: pathname, ip: requestIp(request) }); return; }
+  if (pathname === '/api/invoices' && request.method === 'GET') {
+    if (!actor) { send(response, 401, { error: 'Unauthorized', code: 'not_authenticated' }, reqId); return; }
+    const result = await getProtectedInvoices(actor);
+    send(response, result.status, result.body, reqId);
+    return;
+  }
   const requestBody = bodyObject(request.body);
   if (request.method === 'POST' && pathname === '/api/team-sheets' && String(requestBody.fixtureId || '').trim()) {
     const fixtureId = String(requestBody.fixtureId).trim();
