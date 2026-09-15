@@ -10,27 +10,24 @@ permissions:
 
 jobs:
   patch:
-    if: ${{ !contains(github.event.head_commit.message, 'Vercel compatibility patch') && !contains(github.event.head_commit.message, 'Apply match integrity repairs to production source') }}
+    if: ${{ !contains(github.event.head_commit.message, 'Vercel compatibility patch') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Apply deterministic match integrity repair
-        run: node scripts/apply-match-integrity-repair.mjs
-
       - name: Replace AppDeploy browser SDK imports
         run: |
           find src -type f \( -name '*.ts' -o -name '*.tsx' -o -name '*.js' -o -name '*.jsx' \) -print0 | xargs -0 sed -i "s|from '@appdeploy/client'|from './platformClient'|g"
 
-      - name: Commit compatibility and integrity repairs
+      - name: Commit compatibility patch
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add src backend/index.ts server/matchIntegrity.ts scripts/apply-match-integrity-repair.mjs
+          git add src
           if git diff --cached --quiet; then
-            echo 'No repair changes required.'
+            echo 'No import changes required.'
             exit 0
           fi
-          git commit -m 'Apply match integrity repairs to production source'
+          git commit -m 'fix: Vercel compatibility patch for browser SDK imports'
           git push
