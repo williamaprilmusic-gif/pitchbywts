@@ -46,4 +46,18 @@ if (!api.includes('acquireLiveLock')) {
   fs.writeFileSync(apiPath, api);
 }
 
-console.log('Applied Pitchline live-match concurrency protection.');
+// The legacy live-match routes share a notification helper that historically
+// attempted ws.send([]) when nobody was subscribed. Some WebSocket adapters
+// reject an empty recipient list, which could turn an otherwise successful
+// mutation into HTTP 500. Patch that helper at build time to make zero
+// subscribers a normal no-op.
+const backendPath = 'backend/index.ts';
+let backend = fs.readFileSync(backendPath, 'utf8');
+const unsafeNotify = "if(ids)await ws.send(ids,{v:1,type:'entity.update',payload:{entity_type:entityType,entity_id:entityId,data}});";
+const safeNotify = "if(ids.length)await ws.send(ids,{v:1,type:'entity.update',payload:{entity_type:entityType,entity_id:entityId,data}});";
+if (backend.includes(unsafeNotify)) {
+  backend = backend.replace(unsafeNotify, safeNotify);
+  fs.writeFileSync(backendPath, backend);
+}
+
+console.log('Applied Pitchline live-match concurrency and empty-subscriber notification protection.');
