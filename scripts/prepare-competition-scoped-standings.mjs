@@ -19,14 +19,16 @@ const replacement = `async function recalcStandings(competitionId?: string){
     else if(f.homeScore<f.awayScore){a.won++;a.pts+=3;h.lost++;}
     else{h.drawn++;a.drawn++;h.pts++;a.pts++;}
   }
-  for(const t of calc.values())await db.update('teams',[{id:t.id,record:{name:t.name,ageGroup:t.ageGroup,played:t.played,won:t.won,drawn:t.drawn,lost:t.lost,gf:t.gf,ga:t.ga,pts:t.pts,competitionId:competitionId||undefined}}]);
+  for(const t of calc.values()){
+    const record={name:t.name,ageGroup:t.ageGroup,played:t.played,won:t.won,drawn:t.drawn,lost:t.lost,gf:t.gf,ga:t.ga,pts:t.pts};
+    if(competitionId)(record as Record<string,unknown>).competitionId=competitionId;
+    await db.update('teams',[{id:t.id,record}]);
+  }
   const out=await listTable('teams');await notify('teams','league',out);return out;
 }
 export const handler=`;
 
-if (!functionPattern.test(source)) {
-  throw new Error('Could not locate recalcStandings() for competition-scoped patch.');
-}
+if (!functionPattern.test(source)) throw new Error('Could not locate recalcStandings() for competition-scoped patch.');
 source = source.replace(functionPattern, replacement);
 source = source.replace(/if\(okFixture\[0\]\)await recalcStandings\(\)/g, "if(okFixture[0])await recalcStandings(String(fixture.competitionId||'')||undefined)");
 source = source.replace(/if\(matchdayStatus==='Full time'\)await recalcStandings\(\)/g, "if(matchdayStatus==='Full time')await recalcStandings(String(fixture.competitionId||'')||undefined)");
