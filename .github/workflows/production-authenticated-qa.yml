@@ -6,7 +6,7 @@ on:
       base_url:
         description: 'Production URL to test'
         required: false
-        default: 'https://pitchline-william-april.vercel.app'
+        default: 'https://pitchline-theta.vercel.app'
         type: string
 
 permissions:
