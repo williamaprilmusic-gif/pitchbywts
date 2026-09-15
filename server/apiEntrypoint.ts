@@ -39,9 +39,16 @@ async function isLfaAdmin(userId?: string) {
   return result.items.some(item => String(item.userId) === userId && String(item.role) === 'LFA Admin');
 }
 
+async function getUserRole(userId: string) {
+  const result = await db.list<RecordShape>('user_roles', { limit: 5000 });
+  const found = result.items.find(item => String(item.userId) === userId);
+  return String(found?.role || 'Supporter');
+}
+
 async function authEndpoint(request: VercelRequest, response: VercelResponse, pathname: string, reqId: string) {
   if (pathname === '/api/auth/sign-out' && request.method === 'POST') { clearSessionCookie(response); send(response, 200, { ok: true }, reqId); return true; }
-  if (pathname === '/api/auth/me' && request.method === 'GET') { const user = getSessionUser(request); if (!user) send(response, 401, { error: 'Unauthorized', code: 'not_authenticated' }, reqId); else send(response, 200, { user }, reqId); return true; }
+  if (pathname === '/api/auth/me' && request.method === 'GET') { const user = getSessionUser(request); if (!user) send(response, 401, { error: 'Unauthorized', code: 'not_authenticated' }, reqId); else send(response, 200, { user, role: await getUserRole(user.userId) }, reqId); return true; }
+  if (pathname === '/api/my-role' && request.method === 'GET') { const user = getSessionUser(request); if (!user) send(response, 401, { error: 'Unauthorized', code: 'not_authenticated' }, reqId); else send(response, 200, { role: await getUserRole(user.userId), user }, reqId); return true; }
   if (pathname !== '/api/auth/sign-in' && pathname !== '/api/auth/sign-up') return false;
   if (request.method !== 'POST') { send(response, 405, { error: 'Method not allowed' }, reqId); return true; }
   try {
@@ -56,7 +63,7 @@ async function authEndpoint(request: VercelRequest, response: VercelResponse, pa
       if (users.items.some(item => String(item.email || '').toLowerCase() === email)) { send(response, 409, { error: 'An account already exists for that email.', code: 'account_exists' }, reqId); return true; }
       const [id] = await db.add('auth_users', [{ email, name, passwordHash: passwordHash(password), createdAt: Date.now() }]);
       await db.add('user_roles', [{ userId: id, role: 'Supporter', updatedAt: Date.now(), source: 'Self registration' }]);
-      const user: AuthUser = { userId: id, email, name }; setSessionCookie(response, user); send(response, 201, { user, expiresIn: 60 * 60 * 24 * 7 }, reqId); return true;
+      const user: AuthUser = { userId: id, email, name }; setSessionCookie(response, user); send(response, 201, { user, role: 'Supporter', expiresIn: 60 * 60 * 24 * 7 }, reqId); return true;
     }
     const configuredEmail = String(process.env.PITCHLINE_ADMIN_EMAIL || '').trim().toLowerCase();
     const configuredPassword = String(process.env.PITCHLINE_ADMIN_PASSWORD || '');
@@ -66,7 +73,16 @@ async function authEndpoint(request: VercelRequest, response: VercelResponse, pa
       let found = users.items.find(item => String(item.email || '').toLowerCase() === email);
       if (!found) { const [id] = await db.add('auth_users', [{ email, name: String(process.env.PITCHLINE_ADMIN_NAME || 'Pitchline Administrator'), passwordHash: passwordHash(password), createdAt: Date.now() }]); found = { id, email, name: String(process.env.PITCHLINE_ADMIN_NAME || 'Pitchline Administrator') }; }
       const roles = await db.list<RecordShape>('user_roles', { limit: 5000 });
-      if (!roles.items.some(item => String(item.userId) === String(found?.id))) await db.add('user_roles', [{ userId: String(found.id), role: 'LFA Admin', updatedAt: Date.now(), source: 'Vercel bootstrap administrator' }]);
+      const matchingRoles = roles.items.filter(item => String(item.userId) === String(found?.id));
+      if (!matchingRoles.length) {
+        await db.add('user_roles', [{ userId: String(found.id), role: 'LFA Admin', updatedAt: Date.now(), source: 'Vercel bootstrap administrator' }]);
+      } else {
+        for (const existingRole of matchingRoles) {
+          if (String(existingRole.role) !== 'LFA Admin' && existingRole.id) {
+            await db.update('user_roles', [{ id: String(existingRole.id), record: { ...existingRole, role: 'LFA Admin', updatedAt: Date.now(), source: 'Vercel bootstrap administrator' } }]);
+          }
+        }
+      }
       user = { userId: String(found.id), email, name: String(found.name || 'Pitchline Administrator') };
     } else {
       const users = await db.list<RecordShape>('auth_users', { limit: 5000 });
@@ -74,7 +90,8 @@ async function authEndpoint(request: VercelRequest, response: VercelResponse, pa
       if (!found || !verifyPassword(password, String(found.passwordHash || ''))) { send(response, 401, { error: 'Invalid email or password.', code: 'invalid_credentials' }, reqId); return true; }
       user = { userId: String(found.id), email, name: String(found.name || email) };
     }
-    setSessionCookie(response, user); send(response, 200, { user, expiresIn: 60 * 60 * 24 * 7 }, reqId); return true;
+    const role = await getUserRole(user.userId);
+    setSessionCookie(response, user); send(response, 200, { user, role, expiresIn: 60 * 60 * 24 * 7 }, reqId); return true;
   } catch (error) { console.error('Pitchline auth error', error); send(response, 500, { error: error instanceof Error ? error.message : 'Authentication service failed.' }, reqId); return true; }
 }
 
