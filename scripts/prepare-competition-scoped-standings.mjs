@@ -3,6 +3,11 @@ import fs from 'node:fs';
 const file = 'backend/index.ts';
 let source = fs.readFileSync(file, 'utf8');
 
+if (source.includes('async function recalcStandings(competitionId?: string)')) {
+  console.log('Competition-scoped standings patch already applied; skipping.');
+  process.exit(0);
+}
+
 const functionPattern = /async function recalcStandings\(\)\{[\s\S]*?\}\nexport const handler=/;
 const replacement = `async function recalcStandings(competitionId?: string){
   const fixtures=await listTable<Fixture&{id:string}>('fixtures');
