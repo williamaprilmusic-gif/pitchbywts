@@ -33,7 +33,7 @@ if (!api.includes('acquireLiveLock')) {
     "    }",
     "  }",
     "",
-  ].join('\\n');
+  ].join('\n');
   if (!api.includes(duplicateMarker)) throw new Error('Concurrency patch: duplicate marker not found');
   api = api.replace(duplicateMarker, `${lockCode}${duplicateMarker}`);
   const earlyReturn = "        send(response, 200, current, reqId);\n        await writeAudit({ requestId: reqId, actorId: actor.userId, actorEmail: actor.email, method: request.method || 'POST', path: pathname, outcome: 'idempotent-replay', duplicateEventId: duplicate.id, fixtureId, ip: requestIp(request) });\n        return;";
