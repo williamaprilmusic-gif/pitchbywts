@@ -10,6 +10,8 @@ type LocalUser = {
 
 type Credentials = { email?: string; password?: string; name?: string };
 
+type ApiFailure = Error & { code?: string; status?: number };
+
 type WsConnection = {
     connectionId: string | null;
     ready: Promise<void>;
@@ -38,12 +40,16 @@ async function request<T = unknown>(method: RequestMethod, url: string, body?: u
     try { data = text ? JSON.parse(text) : null; } catch { data = text; }
 
     if (!response.ok) {
-        const message = typeof data === 'object' && data !== null && 'message' in data
-            ? String((data as { message?: unknown }).message)
-            : typeof data === 'object' && data !== null && 'error' in data
-                ? String((data as { error?: unknown }).error)
+        const payload = typeof data === 'object' && data !== null ? data as { message?: unknown; error?: unknown; code?: unknown } : {};
+        const message = payload.message != null
+            ? String(payload.message)
+            : payload.error != null
+                ? String(payload.error)
                 : `Request failed (${response.status})`;
-        throw new Error(message);
+        const failure = new Error(message) as ApiFailure;
+        failure.code = payload.code != null ? String(payload.code) : `http_${response.status}`;
+        failure.status = response.status;
+        throw failure;
     }
     return { data: data as T };
 }
@@ -93,17 +99,22 @@ export const auth = {
     getAccessToken: async (): Promise<string | null> => null,
     signIn: async (credentials: Credentials = {}): Promise<{ user: LocalUser; accessToken: string; expiresIn: number }> => {
         const supplied = credentials.email || credentials.password ? credentials : await promptCredentials();
-        const response = await request<{ user: LocalUser; accessToken: string; expiresIn: number }>('POST', '/api/auth/sign-in', {
+        if (!supplied.email || !supplied.password) {
+            const failure = new Error('Email and password are required.') as ApiFailure;
+            failure.code = 'credentials_required';
+            throw failure;
+        }
+        const response = await request<{ user: LocalUser; accessToken?: string; expiresIn: number }>('POST', '/api/auth/sign-in', {
             email: supplied.email,
             password: supplied.password,
         });
         writeStoredUser(response.data.user);
-        return response.data;
+        return { ...response.data, accessToken: response.data.accessToken || '' };
     },
     signUp: async (credentials: Credentials): Promise<{ user: LocalUser; accessToken: string; expiresIn: number }> => {
-        const response = await request<{ user: LocalUser; accessToken: string; expiresIn: number }>('POST', '/api/auth/sign-up', credentials);
+        const response = await request<{ user: LocalUser; accessToken?: string; expiresIn: number }>('POST', '/api/auth/sign-up', credentials);
         writeStoredUser(response.data.user);
-        return response.data;
+        return { ...response.data, accessToken: response.data.accessToken || '' };
     },
     signOut: async (): Promise<void> => {
         try { await request('POST', '/api/auth/sign-out'); } finally { writeStoredUser(null); }
