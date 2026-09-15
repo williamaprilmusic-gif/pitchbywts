@@ -1,0 +1,61 @@
+name: Pitchline Production Public Smoke
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  public-and-auth-boundaries:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Public page is reachable
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --max-time 20 https://pitchline-william-april.vercel.app/ >/tmp/page.html
+          grep -q 'Pitchline' /tmp/page.html || true
+
+      - name: Health is configured
+        run: |
+          set -euo pipefail
+          body=$(curl --fail --silent --show-error --max-time 20 https://pitchline-william-april.vercel.app/api/_healthcheck)
+          echo "$body"
+          node -e 'const x=JSON.parse(process.argv[1]); if(!x.ok||!x.databaseConfigured||!x.sessionConfigured||!x.adminBootstrapConfigured) process.exit(1)' "$body"
+
+      - name: Public fixtures read is available
+        run: |
+          set -euo pipefail
+          code=$(curl --silent --output /tmp/fixtures.json --write-out '%{http_code}' --max-time 20 https://pitchline-william-april.vercel.app/api/fixtures)
+          test "$code" = "200"
+          node -e 'const x=require("/tmp/fixtures.json"); if(!Array.isArray(x)) process.exit(1)'
+
+      - name: Public standings read is available
+        run: |
+          set -euo pipefail
+          code=$(curl --silent --output /tmp/teams.json --write-out '%{http_code}' --max-time 20 https://pitchline-william-april.vercel.app/api/teams)
+          test "$code" = "200"
+          node -e 'const x=require("/tmp/teams.json"); if(!Array.isArray(x)) process.exit(1)'
+
+      - name: Live match read rejects unknown fixture safely
+        run: |
+          set -euo pipefail
+          code=$(curl --silent --output /tmp/live.json --write-out '%{http_code}' --max-time 20 https://pitchline-william-april.vercel.app/api/live-match/__smoke_unknown_fixture__)
+          test "$code" = "404"
+
+      - name: Finance remains protected
+        run: |
+          set -euo pipefail
+          code=$(curl --silent --output /tmp/invoices.json --write-out '%{http_code}' --max-time 20 https://pitchline-william-april.vercel.app/api/invoices)
+          test "$code" = "401"
+
+      - name: Live mutations remain protected
+        run: |
+          set -euo pipefail
+          for path in start pause resume finish; do
+            code=$(curl --silent --output /tmp/mutation.json --write-out '%{http_code}' --max-time 20 -X POST -H 'Content-Type: application/json' -d '{"fixtureId":"__smoke_unknown_fixture__"}' "https://pitchline-william-april.vercel.app/api/live-match/$path")
+            test "$code" = "401"
+          done
