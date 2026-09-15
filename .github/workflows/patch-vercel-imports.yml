@@ -15,36 +15,18 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Apply safe live polling patch
-        run: |
-          if [ -f scripts/apply-live-polling-once.mjs ]; then
-            node scripts/apply-live-polling-once.mjs
-          fi
 
       - name: Replace AppDeploy browser SDK imports
         run: |
           find src -type f \( -name '*.ts' -o -name '*.tsx' -o -name '*.js' -o -name '*.jsx' \) -print0 | xargs -0 sed -i "s|from '@appdeploy/client'|from './platformClient'|g"
 
-      - name: Build verification
-        run: npm ci && npm run build
-
-      - name: Commit compatibility and live polling patch
+      - name: Commit compatibility patch
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add src
-          if [ -f scripts/apply-live-polling-once.mjs ]; then git rm -f scripts/apply-live-polling-once.mjs; fi
-          if [ -f .github/workflows/apply-live-polling-once.yml ]; then git rm -f .github/workflows/apply-live-polling-once.yml; fi
           if git diff --cached --quiet; then
-            echo 'No changes required.'
+            echo 'No import changes required.'
             exit 0
           fi
           git commit -m 'fix: Vercel compatibility patch for browser SDK imports'
