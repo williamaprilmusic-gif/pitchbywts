@@ -36,6 +36,13 @@ if (!s.includes(eventReplacement)) {
   s = s.replace(eventAnchor, eventReplacement);
 }
 
+const recordNeedle = "note:String(input.note||'').trim().slice(0,500)||undefined,goalDetail:";
+const recordReplacement = "note:String(input.note||'').trim().slice(0,500)||undefined,idempotencyKey:String(input.idempotencyKey||input.eventId||'').trim()||undefined,goalDetail:";
+if (!s.includes(recordReplacement)) {
+  if ((s.match(new RegExp(escape(recordNeedle), 'g')) || []).length !== 1) throw new Error('live event record anchor count mismatch');
+  s = s.replace(recordNeedle, recordReplacement);
+}
+
 fs.writeFileSync(file, s);
 console.log('Match integrity source repairs applied.');
 
