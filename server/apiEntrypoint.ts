@@ -146,19 +146,39 @@ async function authEndpoint(request: VercelRequest, response: VercelResponse, pa
     if (configuredEmail && configuredPassword && email === configuredEmail && password === configuredPassword) {
       const users = await db.list<RecordShape>('auth_users', { limit: 5000 });
       let found = users.items.find(item => String(item.email || '').toLowerCase() === email);
-      if (!found) { const [id] = await db.add('auth_users', [{ email, name: String(process.env.PITCHLINE_ADMIN_NAME || 'Pitchline Administrator'), passwordHash: passwordHash(password), createdAt: Date.now() }]); found = { id, email, name: String(process.env.PITCHLINE_ADMIN_NAME || 'Pitchline Administrator') }; }
+      const configuredName = String(process.env.PITCHLINE_ADMIN_NAME || 'Pitchline Administrator').trim() || 'Pitchline Administrator';
+      if (!found) {
+        const [id] = await db.add('auth_users', [{ email, name: configuredName, passwordHash: passwordHash(password), createdAt: Date.now() }]);
+        found = { id, email, name: configuredName };
+      } else if (found.id) {
+        // Self-heal the persisted admin credentials on every successful configured-admin login.
+        // The configured Vercel password is never exposed; only its salted scrypt hash is stored.
+        await db.update('auth_users', [{
+          id: String(found.id),
+          record: {
+            ...found,
+            email,
+            name: configuredName,
+            passwordHash: passwordHash(password),
+            updatedAt: Date.now(),
+            source: 'Vercel bootstrap administrator'
+          }
+        }]);
+      }
       const roles = await db.list<RecordShape>('user_roles', { limit: 5000 });
       const matchingRoles = roles.items.filter(item => String(item.userId) === String(found?.id));
       if (!matchingRoles.length) {
         await db.add('user_roles', [{ userId: String(found.id), role: 'LFA Admin', updatedAt: Date.now(), source: 'Vercel bootstrap administrator' }]);
       } else {
         for (const existingRole of matchingRoles) {
-          if (String(existingRole.role) !== 'LFA Admin' && existingRole.id) {
+          if (existingRole.id && String(existingRole.role) !== 'LFA Admin') {
+            await db.update('user_roles', [{ id: String(existingRole.id), record: { ...existingRole, role: 'LFA Admin', updatedAt: Date.now(), source: 'Vercel bootstrap administrator' } }]);
+          } else if (existingRole.id && String(existingRole.role) === 'LFA Admin') {
             await db.update('user_roles', [{ id: String(existingRole.id), record: { ...existingRole, role: 'LFA Admin', updatedAt: Date.now(), source: 'Vercel bootstrap administrator' } }]);
           }
         }
       }
-      user = { userId: String(found.id), email, name: String(found.name || 'Pitchline Administrator') };
+      user = { userId: String(found.id), email, name: configuredName };
     } else {
       const users = await db.list<RecordShape>('auth_users', { limit: 5000 });
       const found = users.items.find(item => String(item.email || '').toLowerCase() === email);
