@@ -45,6 +45,63 @@ async function getUserRole(userId: string) {
   return String(found?.role || 'Supporter');
 }
 
+function liveEventFingerprint(input: RecordShape) {
+  return JSON.stringify({
+    fixtureId: String(input.fixtureId || '').trim(),
+    type: String(input.type || '').trim(),
+    minute: Number(input.minute || 0),
+    clockSeconds: Number(input.clockSeconds || 0),
+    team: String(input.team || '').trim(),
+    relatedPlayer: String(input.player || input.relatedPlayer || '').trim(),
+    playerOffRef: String(input.playerOffRef || '').trim(),
+    playerOnRef: String(input.playerOnRef || '').trim(),
+    note: String(input.note || '').trim().slice(0, 500),
+    goalDetail: String(input.goalDetail || '').trim(),
+  });
+}
+
+async function findDuplicateLiveEvent(input: RecordShape) {
+  const fixtureId = String(input.fixtureId || '').trim();
+  if (!fixtureId) return undefined;
+  const result = await db.list<RecordShape>('live_events', { limit: 5000 });
+  const wanted = liveEventFingerprint(input);
+  return result.items.find(item => {
+    if (String(item.fixtureId || '') !== fixtureId) return false;
+    return liveEventFingerprint(item) === wanted;
+  });
+}
+
+async function getLiveState(fixtureId: string) {
+  const lives = await db.list<RecordShape>('live_matches', { limit: 5000 });
+  const live = lives.items.find(item => String(item.fixtureId || '') === fixtureId);
+  if (!live) return undefined;
+  const events = (await db.list<RecordShape>('live_events', { limit: 5000 })).items
+    .filter(item => String(item.fixtureId || '') === fixtureId)
+    .sort((a, b) => Number(a.createdAt || 0) - Number(b.createdAt || 0));
+  return { ...live, events };
+}
+
+async function syncFixtureFromLiveMatch(fixtureId: string) {
+  const live = await getLiveState(fixtureId);
+  if (!live) return;
+  const fixture = (await db.get<RecordShape>('fixtures', [fixtureId]))[0];
+  if (!fixture) return;
+  const status = String(live.status || 'Scheduled');
+  const next: RecordShape = {
+    ...fixture,
+    homeScore: Number(live.homeScore) || 0,
+    awayScore: Number(live.awayScore) || 0,
+    matchdayStatus:
+      status === 'Live' ? 'Live' :
+      status === 'Half time' ? 'Half time' :
+      status === 'Paused' ? 'Paused' :
+      status === 'Full time' ? 'Full time' :
+      fixture.matchdayStatus,
+  };
+  if (status === 'Full time') next.status = 'completed';
+  await db.update('fixtures', [{ id: fixtureId, record: next }]);
+}
+
 async function authEndpoint(request: VercelRequest, response: VercelResponse, pathname: string, reqId: string) {
   if (pathname === '/api/auth/sign-out' && request.method === 'POST') { clearSessionCookie(response); send(response, 200, { ok: true }, reqId); return true; }
   if (pathname === '/api/auth/me' && request.method === 'GET') { const user = getSessionUser(request); if (!user) send(response, 401, { error: 'Unauthorized', code: 'not_authenticated' }, reqId); else send(response, 200, { user, role: await getUserRole(user.userId) }, reqId); return true; }
@@ -110,10 +167,32 @@ export default async function api(request: VercelRequest, response: VercelRespon
   }
   const handled = await authEndpoint(request, response, pathname, reqId);
   if (handled) { if (mutation) await writeAudit({ requestId: reqId, actorId: actor?.userId, actorEmail: actor?.email, method: request.method || 'GET', path: pathname, ip: requestIp(request) }); return; }
+  const requestBody = bodyObject(request.body);
+  if (request.method === 'POST' && pathname === '/api/team-sheets' && String(requestBody.fixtureId || '').trim()) {
+    const fixtureId = String(requestBody.fixtureId).trim();
+    const existing = (await db.list<RecordShape>('team_sheets', { limit: 5000 })).items.find(item => String(item.fixtureId || '') === fixtureId);
+    if (existing?.id) request.body = { ...requestBody, id: String(existing.id) };
+  }
+  if (request.method === 'POST' && pathname === '/api/live-match/events-v2' && actor && await isLfaAdmin(actor.userId)) {
+    const duplicate = await findDuplicateLiveEvent(requestBody);
+    if (duplicate) {
+      const fixtureId = String(requestBody.fixtureId || '').trim();
+      const current = await getLiveState(fixtureId);
+      if (current) {
+        send(response, 200, current, reqId);
+        await writeAudit({ requestId: reqId, actorId: actor.userId, actorEmail: actor.email, method: request.method || 'POST', path: pathname, outcome: 'idempotent-replay', duplicateEventId: duplicate.id, fixtureId, ip: requestIp(request) });
+        return;
+      }
+    }
+  }
   const routeRequest = request as IncomingMessage & { body?: unknown };
   routeRequest.body = request.body;
   routeRequest.url = pathname;
   try { await handler(routeRequest, response); }
   catch (error) { console.error('Pitchline backend error', { requestId: reqId, error }); if (!response.writableEnded) send(response, 500, { error: error instanceof Error ? error.message : 'Backend request failed.', requestId: reqId }, reqId); }
+  if (response.statusCode < 400 && request.method === 'POST' && ['/api/live-match/start','/api/live-match/pause','/api/live-match/resume','/api/live-match/finish'].includes(pathname)) {
+    const fixtureId = String(requestBody.fixtureId || '').trim();
+    if (fixtureId) await syncFixtureFromLiveMatch(fixtureId);
+  }
   if (mutation) await writeAudit({ requestId: reqId, actorId: actor?.userId, actorEmail: actor?.email, method: request.method || 'GET', path: pathname, status: response.statusCode || 200, ip: requestIp(request) });
 }
