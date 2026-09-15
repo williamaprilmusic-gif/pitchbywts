@@ -37,6 +37,13 @@ async function ensureSchema() {
         PRIMARY KEY (namespace, id)
       )`;
       await db`CREATE INDEX IF NOT EXISTS pitchline_records_namespace_idx ON pitchline_records(namespace)`;
+      await db`CREATE TABLE IF NOT EXISTS pitchline_live_locks (
+        fixture_id TEXT PRIMARY KEY,
+        owner_id TEXT NOT NULL,
+        acquired_at BIGINT NOT NULL,
+        expires_at BIGINT NOT NULL
+      )`;
+      await db`CREATE INDEX IF NOT EXISTS pitchline_live_locks_expiry_idx ON pitchline_live_locks(expires_at)`;
     })().catch(error => {
       schemaPromise = null;
       throw error;
@@ -113,6 +120,31 @@ export const db = {
       RETURNING id
     ` as Array<{ id: string }>;
     return rows.map(row => row.id);
+  },
+  async acquireLiveLock(fixtureId: string, ownerId: string, ttlMs = 30000) {
+    await ensureSchema();
+    const fixture = String(fixtureId || '').trim();
+    const owner = String(ownerId || '').trim();
+    if (!fixture || !owner) return false;
+    const timestamp = now();
+    const expires = timestamp + Math.max(5000, Math.min(120000, ttlMs));
+    const rows = await sql()`
+      INSERT INTO pitchline_live_locks(fixture_id, owner_id, acquired_at, expires_at)
+      VALUES(${fixture}, ${owner}, ${timestamp}, ${expires})
+      ON CONFLICT (fixture_id) DO UPDATE
+      SET owner_id = EXCLUDED.owner_id, acquired_at = EXCLUDED.acquired_at, expires_at = EXCLUDED.expires_at
+      WHERE pitchline_live_locks.expires_at <= ${timestamp} OR pitchline_live_locks.owner_id = ${owner}
+      RETURNING owner_id
+    ` as Array<{ owner_id: string }>;
+    return rows.length > 0 && String(rows[0].owner_id) === owner;
+  },
+  async releaseLiveLock(fixtureId: string, ownerId: string) {
+    await ensureSchema();
+    const fixture = String(fixtureId || '').trim();
+    const owner = String(ownerId || '').trim();
+    if (!fixture || !owner) return false;
+    const rows = await sql()`DELETE FROM pitchline_live_locks WHERE fixture_id = ${fixture} AND owner_id = ${owner} RETURNING fixture_id` as Array<{ fixture_id: string }>;
+    return rows.length > 0;
   },
 };
 
