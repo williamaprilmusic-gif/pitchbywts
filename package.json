@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/prepare-competition-scoped-standings.mjs && node scripts/prepare-security-live-hardening.mjs && node scripts/prepare-public-read-access.mjs && node scripts/prepare-live-polling.mjs && node scripts/prepare-vercel-runtime.mjs && vite build",
+    "build": "node scripts/prepare-competition-scoped-standings.mjs && node scripts/prepare-security-live-hardening.mjs && node scripts/prepare-live-concurrency.mjs && node scripts/prepare-public-read-access.mjs && node scripts/prepare-live-polling.mjs && node scripts/prepare-vercel-runtime.mjs && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
