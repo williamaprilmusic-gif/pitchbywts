@@ -19,6 +19,7 @@ for (const file of targets) {
   if (updated !== original) fs.writeFileSync(file, updated);
 }
 
+// Production integrity repairs are applied in source files; this build step remains deterministic.
 buildSync({
   entryPoints: [path.join(root, 'server', 'apiEntrypoint.ts')],
   outfile: path.join(root, 'server', 'apiRuntime.mjs'),
