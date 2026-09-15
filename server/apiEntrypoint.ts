@@ -151,19 +151,7 @@ async function authEndpoint(request: VercelRequest, response: VercelResponse, pa
         const [id] = await db.add('auth_users', [{ email, name: configuredName, passwordHash: passwordHash(password), createdAt: Date.now() }]);
         found = { id, email, name: configuredName };
       } else if (found.id) {
-        // Self-heal the persisted admin credentials on every successful configured-admin login.
-        // The configured Vercel password is never exposed; only its salted scrypt hash is stored.
-        await db.update('auth_users', [{
-          id: String(found.id),
-          record: {
-            ...found,
-            email,
-            name: configuredName,
-            passwordHash: passwordHash(password),
-            updatedAt: Date.now(),
-            source: 'Vercel bootstrap administrator'
-          }
-        }]);
+        await db.update('auth_users', [{ id: String(found.id), record: { ...found, email, name: configuredName, passwordHash: passwordHash(password), updatedAt: Date.now(), source: 'Vercel bootstrap administrator' } }]);
       }
       const roles = await db.list<RecordShape>('user_roles', { limit: 5000 });
       const matchingRoles = roles.items.filter(item => String(item.userId) === String(found?.id));
@@ -229,6 +217,83 @@ export default async function api(request: VercelRequest, response: VercelRespon
       }
     }
   }
+
+  // Harden the live-match start operation at the Vercel boundary. The legacy backend
+  // route performs the same persistence, but a non-critical realtime notification or
+  // router exception must never turn a successfully persisted kick-off into HTTP 500.
+  if (request.method === 'POST' && pathname === '/api/live-match/start') {
+    if (!actor || !(await isLfaAdmin(actor.userId))) {
+      send(response, actor ? 403 : 401, { error: actor ? 'LFA Admin role required' : 'Unauthorized', code: actor ? 'forbidden' : 'not_authenticated' }, reqId);
+      return;
+    }
+    try {
+      const fixtureId = String(requestBody.fixtureId || '').trim();
+      if (!fixtureId) { send(response, 400, { error: 'fixtureId is required', code: 'invalid_request' }, reqId); return; }
+      const fixture = (await db.get<RecordShape>('fixtures', [fixtureId]))[0];
+      if (!fixture) { send(response, 404, { error: 'Fixture not found', code: 'fixture_not_found' }, reqId); return; }
+      if (String(fixture.status || '').toLowerCase() === 'completed') { send(response, 409, { error: 'Completed fixtures cannot be started', code: 'fixture_completed' }, reqId); return; }
+
+      const now = Date.now();
+      const rows = await db.list<RecordShape>('live_matches', { limit: 5000 });
+      const old = rows.items.find(item => String(item.fixtureId || '') === fixtureId);
+      if (String(old?.status || '') === 'Live') { send(response, 409, { error: 'Match is already live', code: 'already_live' }, reqId); return; }
+      if (String(old?.status || '') === 'Full time') { send(response, 409, { error: 'Match has already finished', code: 'already_finished' }, reqId); return; }
+
+      const base = old || {
+        fixtureId,
+        status: 'Scheduled',
+        elapsedSeconds: 0,
+        homeScore: Number(fixture.homeScore) || 0,
+        awayScore: Number(fixture.awayScore) || 0,
+        updatedAt: now
+      };
+      const next = { ...base, status: 'Live', startedAt: now, pausedAt: undefined, updatedAt: now };
+      let id = old?.id ? String(old.id) : undefined;
+      if (id) {
+        const updated = await db.update('live_matches', [{ id, record: next }]);
+        if (!updated?.[0]) { send(response, 500, { error: 'Could not start match', code: 'live_match_write_failed' }, reqId); return; }
+      } else {
+        const ids = await db.add('live_matches', [next]);
+        id = ids?.[0] ? String(ids[0]) : undefined;
+        if (!id) { send(response, 500, { error: 'Could not start match', code: 'live_match_create_failed' }, reqId); return; }
+      }
+
+      try {
+        const existingKickoff = (await db.list<RecordShape>('live_events', { limit: 5000 })).items.some(event => String(event.fixtureId || '') === fixtureId && String(event.type || '') === 'Kick-off');
+        if (!existingKickoff) await db.add('live_events', [{ fixtureId, type: 'Kick-off', minute: 1, clockSeconds: 0, createdAt: now }]);
+      } catch (eventError) {
+        console.error('Pitchline kick-off event write failed', { requestId: reqId, fixtureId, error: eventError });
+      }
+
+      let live = await getLiveState(fixtureId);
+      if (!live) live = { ...next, id, events: [] };
+
+      try { await syncFixtureFromLiveMatch(fixtureId); }
+      catch (syncError) { console.error('Pitchline live start fixture sync failed', { requestId: reqId, fixtureId, error: syncError }); }
+
+      // Realtime fan-out is advisory; the persisted live state is authoritative.
+      // Never let websocket delivery failure convert a valid state change into 500.
+      try {
+        const subscribers = await db.list<{entity_type:string;entity_id:string;connection_id:string}>('entity_subscriptions', { limit: 1000 });
+        const ids = Array.from(new Set(subscribers.items.filter(s => s.entity_type === 'live-match' && s.entity_id === fixtureId).map(s => s.connection_id)));
+        if (ids.length) {
+          const { ws } = await import('./appdeployCompat');
+          await ws.send(ids, { v: 1, type: 'entity.update', payload: { entity_type: 'live-match', entity_id: fixtureId, data: live } });
+        }
+      } catch (notifyError) {
+        console.error('Pitchline live start realtime notification failed', { requestId: reqId, fixtureId, error: notifyError });
+      }
+
+      await writeAudit({ requestId: reqId, actorId: actor.userId, actorEmail: actor.email, method: 'POST', path: pathname, status: 200, fixtureId, outcome: 'live-started', ip: requestIp(request) });
+      send(response, 200, live, reqId);
+      return;
+    } catch (error) {
+      console.error('Pitchline start-live error', { requestId: reqId, error });
+      if (!response.writableEnded) send(response, 500, { error: error instanceof Error ? error.message : 'Could not start live match.', code: 'live_match_start_failed', requestId: reqId }, reqId);
+      return;
+    }
+  }
+
   const routeRequest = request as IncomingMessage & { body?: unknown };
   routeRequest.body = request.body;
   routeRequest.url = pathname;
