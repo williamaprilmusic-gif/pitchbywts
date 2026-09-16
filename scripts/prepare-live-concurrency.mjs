@@ -53,6 +53,16 @@ if (!api.includes('acquireLiveLock')) {
   fs.writeFileSync(apiPath, api);
 }
 
+// Recover a start request when a legacy/stale live_matches row exists but its
+// update no longer finds the row. db.add is an upsert in the Neon compatibility
+// layer, so retrying with the same id safely recreates the authoritative state.
+const staleStartUpdate = "if (!updated?.[0]) { send(response, 500, { error: 'Could not start match', code: 'live_match_write_failed' }, reqId); return; }";
+const staleStartRecovery = "if (!updated?.[0]) { const recoveredIds = await db.add('live_matches', [next]); if (!recoveredIds?.[0]) { send(response, 500, { error: 'Could not start match', code: 'live_match_write_failed' }, reqId); return; } id = String(recoveredIds[0]); }";
+if (api.includes(staleStartUpdate)) {
+  api = api.replace(staleStartUpdate, staleStartRecovery);
+  fs.writeFileSync(apiPath, api);
+}
+
 // The legacy live-match routes share a notification helper that historically
 // attempted ws.send([]) when nobody was subscribed. Make zero subscribers a
 // normal no-op so realtime notification cannot turn a successful mutation into 500.
@@ -65,4 +75,4 @@ if (backend.includes(unsafeNotify)) {
   fs.writeFileSync(backendPath, backend);
 }
 
-console.log('Applied Pitchline live-match concurrency and empty-subscriber notification protection.');
+console.log('Applied Pitchline live-match concurrency, stale-state recovery and empty-subscriber notification protection.');
