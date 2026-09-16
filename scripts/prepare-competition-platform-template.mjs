@@ -7,9 +7,11 @@ const routeEnd=source.indexOf('`;\nsource = source.replace(marker, routes',route
 if(routeStart<0||routeEnd<0)throw new Error('Competition platform template boundaries not found');
 const head=source.slice(0,routeStart);
 let template=source.slice(routeStart,routeEnd+2);
-// Keep the generated backend route free of nested template interpolation.
+// Keep generated backend code free of nested template interpolation.
 template=template.replace("||`${action}:${competitionId}:${JSON.stringify(input)}`", "||String(action)+':'+String(competitionId)+':'+JSON.stringify(input)");
-// Escape every remaining ${...} so expressions are emitted into backend/index.ts
+template=template.replace("error(`Exactly ${requested} teams are required`,400)", "error('Exactly '+String(requested)+' teams are required',400)");
+template=template.replace("message=`${requested}-team knockout bracket created.`", "message=String(requested)+'-team knockout bracket created.'");
+// Escape remaining ${...} so expressions are emitted into backend/index.ts
 // rather than evaluated while this build-time generator is running.
 template=template.replaceAll('${','\\${');
 const tail=source.slice(routeEnd+2);
