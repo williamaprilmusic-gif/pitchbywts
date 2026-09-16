@@ -18,18 +18,11 @@ if (!compat.includes('pitchline_live_locks')) {
 const apiPath = 'server/apiEntrypoint.ts';
 let api = fs.readFileSync(apiPath, 'utf8');
 if (!api.includes('acquireLiveLock')) {
-  // Accept both the original and hardened authorization guard so this build step
-  // remains idempotent after the manager authorization repair.
   const duplicateMarkers = [
     "  if (request.method === 'POST' && pathname === '/api/live-match/events-v2' && actor && await isLfaAdmin(actor.userId)) {",
     "  if (request.method === 'POST' && pathname === '/api/live-match/events-v2' && actor && await isMatchOperator(actor.userId)) {",
   ];
   const duplicateMarker = duplicateMarkers.find(marker => api.includes(marker));
-  // Do not lock /api/live-match/start here. That route has a dedicated Vercel
-  // boundary handler which returns early after delegating to the legacy router,
-  // bypassing the generic release section below. Locking it therefore leaves a
-  // 30-second fixture lock and makes the immediately-following first event return
-  // HTTP 409 live_match_busy. Start itself is already state-guarded by the backend.
   const lockCode = [
     "  const liveMutationRoutes = ['/api/live-match/events-v2','/api/live-match/events','/api/live-match/undo','/api/live-match/pause','/api/live-match/resume','/api/live-match/finish'];",
     "  const liveMutation = mutation && liveMutationRoutes.includes(pathname);",
@@ -59,9 +52,6 @@ if (!api.includes('acquireLiveLock')) {
   fs.writeFileSync(apiPath, api);
 }
 
-// Recover a start request when a legacy/stale live_matches row exists but its
-// update no longer finds the row. db.add is an upsert in the Neon compatibility
-// layer, so retrying with the same id safely recreates the authoritative state.
 const staleStartUpdate = "if (!updated?.[0]) { send(response, 500, { error: 'Could not start match', code: 'live_match_write_failed' }, reqId); return; }";
 const staleStartRecovery = "if (!updated?.[0]) { const recoveredIds = await db.add('live_matches', [next]); if (!recoveredIds?.[0]) { send(response, 500, { error: 'Could not start match', code: 'live_match_write_failed' }, reqId); return; } id = String(recoveredIds[0]); }";
 if (api.includes(staleStartUpdate)) {
@@ -69,13 +59,10 @@ if (api.includes(staleStartUpdate)) {
   fs.writeFileSync(apiPath, api);
 }
 
-// The legacy live-match routes share a notification helper that historically
-// attempted ws.send([]) when nobody was subscribed. Make zero subscribers a
-// normal no-op so realtime notification cannot turn a successful mutation into 500.
 const backendPath = 'backend/index.ts';
 let backend = fs.readFileSync(backendPath, 'utf8');
 const unsafeNotify = "if(ids)await ws.send(ids,{v:1,type:'entity.update',payload:{entity_type:entityType,entity_id:entityId,data}});";
-const safeNotify = "if(ids.length)await ws.send(ids,{v:1,type:'entity.update',payload:{v:1,type:'entity.update',payload:{entity_type:entityType,entity_id:entityId,data}});";
+const safeNotify = "if(ids.length)await ws.send(ids,{v:1,type:'entity.update',payload:{entity_type:entityType,entity_id:entityId,data}});";
 if (backend.includes(unsafeNotify)) {
   backend = backend.replace(unsafeNotify, safeNotify);
   fs.writeFileSync(backendPath, backend);
