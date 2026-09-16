@@ -7,7 +7,7 @@ const start = "const roleItems:Array<{tab:Tab;label:string;icon:React.ReactNode;
 const end = "];\nfunction canSee(role:Role,tab:Tab){return roleItems.some(item=>item.tab===tab&&item.roles.includes(role));}";
 if (!source.includes(start) || !source.includes(end)) throw new Error('Information architecture nav markers not found');
 
-const newNav = `type RoleNavItem={tab:Tab;label:string;icon:React.ReactNode;roles:Role[]};
+const groupedConfig = `type RoleNavItem={tab:Tab;label:string;icon:React.ReactNode;roles:Role[]};
 type RoleNavGroup={id:string;label:string;roles:Role[];items:RoleNavItem[]};
 const roleNavGroups:RoleNavGroup[]=[
   {id:'supporter-main',label:'Follow football',roles:['Supporter','Manager','Club','LFA Admin'],items:[
@@ -79,7 +79,7 @@ const roleNavGroups:RoleNavGroup[]=[
 ];
 const roleItems=roleNavGroups.flatMap(group=>group.items);
 function canSee(role:Role,tab:Tab){return roleItems.some(item=>item.tab===tab&&item.roles.includes(role));}`;
-source = source.slice(0, source.indexOf(start)) + newNav + source.slice(source.indexOf(end) + end.length);
+source = source.slice(0, source.indexOf(start)) + groupedConfig + source.slice(source.indexOf(end) + end.length);
 
 const stateMarker = "const [mobileOpen,setMobileOpen]=useState(false);";
 if (!source.includes("const [openNavGroups,setOpenNavGroups]")) {
@@ -87,9 +87,9 @@ if (!source.includes("const [openNavGroups,setOpenNavGroups]")) {
 }
 
 const oldNav = `<nav>{roleItems.filter(item=>item.roles.includes(effectiveRole)).map(item=><Nav key={item.tab} icon={item.icon} label={item.label==='Communications'&&notificationSummary.unread?\`${item.label} · \${notificationSummary.unread}\`:item.label} active={tab===item.tab} onClick={()=>navigate(item.tab)}/>)}</nav>`;
-const newNav = `<nav className='workspace-nav'>{roleNavGroups.filter(group=>group.roles.includes(effectiveRole)).map(group=>{const items=group.items.filter(item=>item.roles.includes(effectiveRole));const open=openNavGroups.includes(group.id);const active=items.some(item=>item.tab===tab);return <div className=\"nav-group\" key={group.id}><button type='button' className={\`nav-group-head \${active?'active':''}\`} onClick={()=>setOpenNavGroups(groups=>groups.includes(group.id)?groups.filter(id=>id!==group.id):[...groups,group.id])}><span>{group.label}</span><ChevronRight size={14} className={open?'nav-chevron open':''}/></button>{open&&<div className='nav-group-items'>{items.map(item=><Nav key={item.tab} icon={item.icon} label={item.label==='Communications'&&notificationSummary.unread?\`${item.label} · \${notificationSummary.unread}\`:item.label} active={tab===item.tab} onClick={()=>navigate(item.tab)}/>)}</div>}</div>})}</nav>`;
+const groupedNavMarkup = `<nav className='workspace-nav'>{roleNavGroups.filter(group=>group.roles.includes(effectiveRole)).map(group=>{const items=group.items.filter(item=>item.roles.includes(effectiveRole));const open=openNavGroups.includes(group.id);const active=items.some(item=>item.tab===tab);return <div className=\"nav-group\" key={group.id}><button type='button' className={\`nav-group-head \${active?'active':''}\`} onClick={()=>setOpenNavGroups(groups=>groups.includes(group.id)?groups.filter(id=>id!==group.id):[...groups,group.id])}><span>{group.label}</span><ChevronRight size={14} className={open?'nav-chevron open':''}/></button>{open&&<div className='nav-group-items'>{items.map(item=><Nav key={item.tab} icon={item.icon} label={item.label==='Communications'&&notificationSummary.unread?\`${item.label} · \${notificationSummary.unread}\`:item.label} active={tab===item.tab} onClick={()=>navigate(item.tab)}/>)}</div>}</div>})}</nav>`;
 if (!source.includes(oldNav)) throw new Error('Existing flat navigation render not found');
-source = source.replace(oldNav, newNav);
+source = source.replace(oldNav, groupedNavMarkup);
 
 const roleStateReset = "setUserRole('Supporter');setRole('Supporter');setJoinStatus(null);";
 if (source.includes(roleStateReset)) {
