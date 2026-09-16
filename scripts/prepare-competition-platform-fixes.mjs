@@ -1,0 +1,17 @@
+import fs from 'node:fs';
+import path from 'node:path';
+const backend=path.resolve('backend/index.ts');
+let s=fs.readFileSync(backend,'utf8');
+const old="const teams=Array.isArray(input.teams)?Array.from(new Set(input.teams.map(String).filter(Boolean))):[];const requested=Number(input.size)||teams.length;";
+const neu="const teamRefs=Array.isArray(input.teams)?Array.from(new Set(input.teams.map(String).filter(Boolean))):[];const registeredTeams=await listTable<Record<string,unknown>>('teams');const teams=teamRefs.map(ref=>registeredTeams.find(t=>String(t.id)===ref||String(t.name)===ref)).filter(Boolean).map(t=>String((t as Record<string,unknown>).name));const requested=Number(input.size)||teams.length;";
+if(!s.includes(old)) throw new Error('bracket team selector patch target not found');
+s=s.replace(old,neu);
+fs.writeFileSync(backend,s);
+const app=path.resolve('src/CompetitionOperations.tsx');
+let a=fs.readFileSync(app,'utf8');
+const oldKey="const requestKey=`${name}:${active.id}:${Date.now()}:${Math.random().toString(36).slice(2)}`;";
+const newKey="const stableBody=JSON.stringify(body,Object.keys(body).sort());const requestKey=`${name}:${active.id}:${stableBody}`;";
+if(!a.includes(oldKey)) throw new Error('frontend request key patch target not found');
+a=a.replace(oldKey,newKey);
+fs.writeFileSync(app,a);
+console.log('Competition platform hardening fixes applied.');
