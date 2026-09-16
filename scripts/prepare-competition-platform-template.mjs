@@ -11,11 +11,12 @@ let template=source.slice(routeStart,routeEnd+2);
 template=template.replace("||`${action}:${competitionId}:${JSON.stringify(input)}`", "||String(action)+':'+String(competitionId)+':'+JSON.stringify(input)");
 template=template.replace("error(`Exactly ${requested} teams are required`,400)", "error('Exactly '+String(requested)+' teams are required',400)");
 template=template.replace("message=`${requested}-team knockout bracket created.`", "message=String(requested)+'-team knockout bracket created.'");
-// Escape remaining ${...} so expressions are emitted into backend/index.ts
+// Escape nested expressions so they are emitted into backend/index.ts
 // rather than evaluated while this build-time generator is running.
 template=template.replaceAll('${','\\${');
-// ${begin} is intentionally evaluated by this generator to insert the route marker.
-template=template.replace('\\${begin}', '${begin}');
+// These two expressions belong to the generator itself and must remain live.
+template=template.replaceAll('\\${begin}', '${begin}');
+template=template.replaceAll('\\${end}', '${end}');
 const tail=source.slice(routeEnd+2);
 fs.writeFileSync(file,head+template+tail);
 console.log('Competition platform route template normalized for safe nested interpolation.');
