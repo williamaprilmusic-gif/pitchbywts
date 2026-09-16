@@ -5,6 +5,7 @@ export type AuthUser = { userId: string; email: string; name: string };
 
 const SESSION_COOKIE = 'pitchline_session';
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
+const SESSION_STORAGE_KEY = 'pitchline_session_token';
 
 function sessionSecret() {
   const value = process.env.PITCHLINE_SESSION_SECRET;
@@ -40,6 +41,10 @@ function encode(user: AuthUser) {
   return `${payload}.${sign(payload)}`;
 }
 
+export function createSessionToken(user: AuthUser) {
+  return encode(user);
+}
+
 function decode(token?: string): AuthUser | null {
   if (!token) return null;
   const [payload, signature] = token.split('.');
@@ -72,13 +77,21 @@ function cookies(req: IncomingMessage) {
 }
 
 export function getSessionUser(req: IncomingMessage) {
-  return decode(cookies(req)[SESSION_COOKIE]);
+  const cookieUser = decode(cookies(req)[SESSION_COOKIE]);
+  if (cookieUser) return cookieUser;
+  const authorization = String(req.headers.authorization || '').trim();
+  if (authorization.toLowerCase().startsWith('bearer ')) return decode(authorization.slice(7).trim());
+  const headerToken = String(req.headers['x-pitchline-session'] || '').trim();
+  return decode(headerToken || undefined);
 }
 
 export function setSessionCookie(res: ServerResponse, user: AuthUser) {
-  res.setHeader('Set-Cookie', `${SESSION_COOKIE}=${encodeURIComponent(encode(user))}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${SESSION_TTL_SECONDS}`);
+  const token = encode(user);
+  res.setHeader('Set-Cookie', `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${SESSION_TTL_SECONDS}`);
 }
 
 export function clearSessionCookie(res: ServerResponse) {
   res.setHeader('Set-Cookie', `${SESSION_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`);
 }
+
+export const sessionStorageKey = SESSION_STORAGE_KEY;
