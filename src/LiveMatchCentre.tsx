@@ -231,8 +231,13 @@ export default function LiveMatchCentre({ role, setNotice }: Props) {
       const response = await api.post(path, { fixtureId: selected.id, ...extra });
       setLive(response.data);
       setNotice('Match state published.');
-    } catch {
-      setNotice('Could not update match state.');
+    } catch (error) {
+      const failure = error as Error & { code?: string; status?: number; requestId?: string };
+      const detail = [failure.message, failure.code ? `code: ${failure.code}` : '', failure.requestId ? `request: ${failure.requestId}` : ''].filter(Boolean).join(' · ');
+      setNotice(detail || 'Could not update match state.');
+      if (path === '/api/live-match/start' && failure.status === 409) {
+        await loadMatch(selected.id);
+      }
     } finally {
       setBusy(false);
     }
