@@ -4,7 +4,7 @@ import AppRuntime from './AppRuntime';
 import InteractionEnhancer from './InteractionEnhancer';
 import LiveSystemStatus from './LiveSystemStatus';
 import ProfessionalSuite from './ProfessionalSuite';
-import OperationsWorkbench from './OperationsWorkbench';
+import OperationsControl from './OperationsControl';
 import OperationalSync from './OperationalSync';
 import ModuleConnectionBridge from './ModuleConnectionBridge';
 import './index.css';
@@ -25,7 +25,7 @@ function RuntimeServices() {
     <LiveSystemStatus />
     <InteractionEnhancer />
     <ProfessionalSuite />
-    <OperationsWorkbench />
+    <OperationsControl />
     <OperationalSync />
     <ModuleConnectionBridge />
   </>;
