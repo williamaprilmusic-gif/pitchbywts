@@ -14,6 +14,8 @@ template=template.replace("message=`${requested}-team knockout bracket created.`
 // Escape remaining ${...} so expressions are emitted into backend/index.ts
 // rather than evaluated while this build-time generator is running.
 template=template.replaceAll('${','\\${');
+// ${begin} is intentionally evaluated by this generator to insert the route marker.
+template=template.replace('\\${begin}', '${begin}');
 const tail=source.slice(routeEnd+2);
 fs.writeFileSync(file,head+template+tail);
 console.log('Competition platform route template normalized for safe nested interpolation.');
