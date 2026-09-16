@@ -19,9 +19,6 @@ for (const file of targets) {
   if (updated !== original) fs.writeFileSync(file, updated);
 }
 
-// Explicitly select the corrected TypeScript compatibility layer. A legacy
-// server/appdeployCompat.js exists in the repository and does not contain the
-// live-lock API; extensionless resolution can otherwise select that stale file.
 const entryPath = path.join(root, 'server', 'apiEntrypoint.ts');
 if (fs.existsSync(entryPath)) {
   const original = fs.readFileSync(entryPath, 'utf8');
@@ -29,19 +26,22 @@ if (fs.existsSync(entryPath)) {
     .replace("from './appdeployCompat';", "from './appdeployCompat.ts';")
     .replace("import('./appdeployCompat')", "import('./appdeployCompat.ts')");
 
-  // The dedicated /api/live-match/start handler returns directly before the
-  // generic post-handler release boundary. Do not acquire the generic lock for
-  // that route; its persisted state transition is atomic and the event routes
-  // remain protected by the database lock.
   updated = updated.replace(
     "const liveMutationRoutes = ['/api/live-match/events-v2','/api/live-match/events','/api/live-match/undo','/api/live-match/start','/api/live-match/pause','/api/live-match/resume','/api/live-match/finish'];",
     "const liveMutationRoutes = ['/api/live-match/events-v2','/api/live-match/events','/api/live-match/undo','/api/live-match/pause','/api/live-match/resume','/api/live-match/finish'];"
   );
 
+  // Live-event records store the player member reference in relatedPlayer while
+  // the display name is stored in player. Use the stable member reference first
+  // so a replay of the same event is recognized as the same event.
+  updated = updated.replace(
+    "relatedPlayer: String(input.player || input.relatedPlayer || '').trim(),",
+    "relatedPlayer: String(input.relatedPlayer || input.player || '').trim(),"
+  );
+
   if (updated !== original) fs.writeFileSync(entryPath, updated);
 }
 
-// Production integrity repairs are applied in source files; this build step remains deterministic.
 buildSync({
   entryPoints: [path.join(root, 'server', 'apiEntrypoint.ts')],
   outfile: path.join(root, 'server', 'apiRuntime.mjs'),
