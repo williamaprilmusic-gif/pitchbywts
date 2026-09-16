@@ -21,6 +21,7 @@ type WsConnection = {
 };
 
 const USER_KEY = 'pitchline.auth.user';
+const SESSION_KEY = 'pitchline_session_token';
 // Keep browser API calls same-origin so the HttpOnly pitchline_session cookie is always sent to the same Vercel host.
 const API_BASE = '';
 const GET_RETRIES = 2;
@@ -37,30 +38,43 @@ function sleep(ms: number) {
     return new Promise(resolve => window.setTimeout(resolve, ms));
 }
 
+function readSessionToken() {
+    try { return sessionStorage.getItem(SESSION_KEY) || ''; } catch { return ''; }
+}
+
+function writeSessionToken(token: string | null) {
+    try {
+        if (token) sessionStorage.setItem(SESSION_KEY, token);
+        else sessionStorage.removeItem(SESSION_KEY);
+    } catch { /* optional browser storage */ }
+}
+
 async function request<T = unknown>(method: RequestMethod, url: string, body?: unknown, attempt = 0): Promise<ApiResponse<T>> {
     const controller = typeof AbortController !== 'undefined' ? new AbortController() : undefined;
     const timeout = controller ? window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS) : undefined;
     try {
+        const sessionToken = readSessionToken();
+        const headers: Record<string, string> = body === undefined
+            ? { Accept: 'application/json', 'X-Pitchline-Client': 'web' }
+            : { Accept: 'application/json', 'Content-Type': 'application/json', 'X-Pitchline-Client': 'web' };
+        if (sessionToken) headers.Authorization = `Bearer ${sessionToken}`;
         const response = await fetch(`${API_BASE}${url}`, {
             method,
             credentials: 'include',
             cache: method === 'GET' ? 'no-store' : 'default',
-            headers: body === undefined
-                ? { Accept: 'application/json', 'X-Pitchline-Client': 'web' }
-                : { Accept: 'application/json', 'Content-Type': 'application/json', 'X-Pitchline-Client': 'web' },
+            headers,
             body: body === undefined ? undefined : JSON.stringify(body),
             signal: controller?.signal,
         });
 
+        const responseToken = response.headers.get('X-Pitchline-Session');
+        if (responseToken) writeSessionToken(responseToken);
         const requestId = response.headers.get('X-Request-Id') || undefined;
         const text = await response.text();
         let data: unknown = null;
         try { data = text ? JSON.parse(text) : null; } catch { data = text; }
 
-        // The public application intentionally requests a mix of public and protected
-        // resources. A 401 on a GET means the visitor is not signed in; it does not
-        // mean the service is unavailable. Returning an empty protected dataset keeps
-        // one optional endpoint from causing a false global data-sync failure.
+        // A protected GET without a session is treated as empty data. Mutations remain hard failures.
         if (response.status === 401 && method === 'GET') {
             return { data: null as T };
         }
@@ -132,16 +146,18 @@ export const auth = {
             const response = await request<{ user: LocalUser; role?: string }>('GET', '/api/auth/me');
             if (!response.data?.user) {
                 writeStoredUser(null);
+                writeSessionToken(null);
                 return null;
             }
             writeStoredUser(response.data.user);
             return response.data.user;
         } catch {
             writeStoredUser(null);
+            writeSessionToken(null);
             return null;
         }
     },
-    getAccessToken: async (): Promise<string | null> => null,
+    getAccessToken: async (): Promise<string | null> => readSessionToken() || null,
     signIn: async (credentials: Credentials = {}): Promise<{ user: LocalUser; accessToken: string; expiresIn: number }> => {
         const supplied = credentials.email || credentials.password ? credentials : await promptCredentials();
         if (!supplied.email || !supplied.password) {
@@ -154,15 +170,19 @@ export const auth = {
             password: supplied.password,
         });
         writeStoredUser(response.data.user);
-        return { ...response.data, accessToken: response.data.accessToken || '' };
+        const token = response.data.accessToken || readSessionToken();
+        if (token) writeSessionToken(token);
+        return { ...response.data, accessToken: token || '' };
     },
     signUp: async (credentials: Credentials): Promise<{ user: LocalUser; accessToken: string; expiresIn: number }> => {
         const response = await request<{ user: LocalUser; accessToken?: string; expiresIn: number }>('POST', '/api/auth/sign-up', credentials);
         writeStoredUser(response.data.user);
-        return { ...response.data, accessToken: response.data.accessToken || '' };
+        const token = response.data.accessToken || readSessionToken();
+        if (token) writeSessionToken(token);
+        return { ...response.data, accessToken: token || '' };
     },
     signOut: async (): Promise<void> => {
-        try { await request('POST', '/api/auth/sign-out'); } finally { writeStoredUser(null); }
+        try { await request('POST', '/api/auth/sign-out'); } finally { writeStoredUser(null); writeSessionToken(null); }
     },
 };
 
