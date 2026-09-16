@@ -1,0 +1,36 @@
+name: Repair live start handler
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Patch live start recovery
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('server/apiEntrypoint.ts')
+          s = p.read_text()
+          old = """      if (id) {\n        const updated = await db.update('live_matches', [{ id, record: next }]);\n        if (!updated?.[0]) { send(response, 500, { error: 'Could not start match', code: 'live_match_write_failed' }, reqId); return; }\n      } else {\n"""
+          new = """      if (id) {\n        const updated = await db.update('live_matches', [{ id, record: next }]);\n        if (!updated?.[0]) {\n          const recovered = await db.add('live_matches', [{ ...next, id }]);\n          if (!recovered?.[0]) { send(response, 500, { error: 'Could not start match', code: 'live_match_write_failed' }, reqId); return; }\n        }\n      } else {\n"""
+          if old not in s:
+              raise SystemExit('Expected live-start block not found; refusing unsafe patch')
+          p.write_text(s.replace(old, new, 1))
+          PY
+          rm .github/workflows/repair-live-start.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add server/apiEntrypoint.ts .github/workflows/repair-live-start.yml
+          git commit -m 'Fix live match start persistence fallback'
+          git push
