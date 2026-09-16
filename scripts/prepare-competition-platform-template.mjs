@@ -2,15 +2,16 @@ import fs from 'node:fs';
 import path from 'node:path';
 const file=path.resolve('scripts/prepare-competition-platform.mjs');
 let source=fs.readFileSync(file,'utf8');
-if(source.includes("\\${action}:${competitionId}")){
-  console.log('Competition platform template already escaped.');
-  process.exit(0);
-}
 const routeStart=source.indexOf('const routes = `');
 const routeEnd=source.indexOf('`;\nsource = source.replace(marker, routes',routeStart);
 if(routeStart<0||routeEnd<0)throw new Error('Competition platform template boundaries not found');
 const head=source.slice(0,routeStart);
-const template=source.slice(routeStart,routeEnd+2).replaceAll('${','\\${');
+let template=source.slice(routeStart,routeEnd+2);
+// Keep the generated backend route free of nested template interpolation.
+template=template.replace("||`${action}:${competitionId}:${JSON.stringify(input)}`", "||String(action)+':'+String(competitionId)+':'+JSON.stringify(input)");
+// Escape every remaining ${...} so expressions are emitted into backend/index.ts
+// rather than evaluated while this build-time generator is running.
+template=template.replaceAll('${','\\${');
 const tail=source.slice(routeEnd+2);
 fs.writeFileSync(file,head+template+tail);
-console.log('Escaped nested template expressions in competition platform route generator.');
+console.log('Competition platform route template normalized for safe nested interpolation.');
