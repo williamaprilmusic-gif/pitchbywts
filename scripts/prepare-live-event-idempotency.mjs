@@ -26,9 +26,9 @@ const duplicateAnchor = "if(locked)return error('Verified matches are locked',40
 const duplicateGuard = "if(locked)return error('Verified matches are locked',409);const eventKey=liveEventKey(input);const existingEvents=await listTable<LiveEvent & {idempotencyKey?:string}>('live_events');const duplicate=existingEvents.find(event=>event.fixtureId===fixtureId&&String(event.idempotencyKey||'')===eventKey);if(duplicate)return json({...live,events:existingEvents.filter(event=>event.fixtureId===fixtureId).sort((a,b)=>a.createdAt-b.createdAt)});const team=";
 if (!handlerBody.includes(duplicateAnchor)) throw new Error('Could not locate live-event duplicate guard anchor.');
 handlerBody = handlerBody.replace(duplicateAnchor, duplicateGuard);
-const recordAnchor = "playerOnRef:offName||undefined,createdAt:now";
-if (!handlerBody.includes(recordAnchor)) throw new Error('Could not locate live-event record anchor.');
-handlerBody = handlerBody.replace(recordAnchor, "playerOnRef:offName||undefined,idempotencyKey:eventKey,createdAt:now");
+const recordNeedle = 'playerOnRef:offName||undefined';
+if (!handlerBody.includes(recordNeedle)) throw new Error('Could not locate live-event record playerOnRef anchor.');
+handlerBody = handlerBody.replace(recordNeedle, 'playerOnRef:offName||undefined,idempotencyKey:eventKey');
 const newRoute = `${prefix}withLiveEventLock(async({body})=>{${handlerBody}})],`;
 next = next.slice(0, routeStart) + newRoute + next.slice(routeEnd);
 fs.writeFileSync(file, next);
