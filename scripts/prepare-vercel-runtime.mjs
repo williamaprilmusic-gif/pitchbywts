@@ -19,6 +19,18 @@ for (const file of targets) {
   if (updated !== original) fs.writeFileSync(file, updated);
 }
 
+// Explicitly select the corrected TypeScript compatibility layer. A legacy
+// server/appdeployCompat.js exists in the repository and does not contain the
+// live-lock API; extensionless resolution can otherwise select that stale file.
+const entryPath = path.join(root, 'server', 'apiEntrypoint.ts');
+if (fs.existsSync(entryPath)) {
+  const original = fs.readFileSync(entryPath, 'utf8');
+  const updated = original
+    .replace("from './appdeployCompat';", "from './appdeployCompat.ts';")
+    .replace("import('./appdeployCompat')", "import('./appdeployCompat.ts')");
+  if (updated !== original) fs.writeFileSync(entryPath, updated);
+}
+
 // Production integrity repairs are applied in source files; this build step remains deterministic.
 buildSync({
   entryPoints: [path.join(root, 'server', 'apiEntrypoint.ts')],
