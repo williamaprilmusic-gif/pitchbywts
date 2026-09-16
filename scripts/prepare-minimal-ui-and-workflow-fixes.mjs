@@ -24,9 +24,9 @@ const invoiceNew = "function invoiceStatus(dueDate:string,status:'Due'|'Paid'|'O
 backend = backend.replace(invoiceOld, invoiceNew);
 
 // Persist the factual safeguarding case note; the previous workflow validated it but discarded it.
-const caseOld = "ownerRole:assignment.role,createdAt:now,updatedAt:now";
-const caseNew = "ownerRole:assignment.role,note,createdAt:now,updatedAt:now";
-backend = backend.replace(caseOld, caseNew);
+const caseMarker = "await db.add('safeguarding_cases',[{playerId,team:player.team,clubId:player.clubId,category:String(input.category||'Safeguarding concern'),severity,status:'Open',ownerRole:assignment.role,createdAt:now,updatedAt:now}]);";
+const caseReplacement = "await db.add('safeguarding_cases',[{playerId,team:player.team,clubId:player.clubId,category:String(input.category||'Safeguarding concern'),severity,status:'Open',ownerRole:assignment.role,note,createdAt:now,updatedAt:now}]);";
+if (backend.includes(caseMarker)) backend = backend.replace(caseMarker, caseReplacement);
 
 fs.writeFileSync(backendPath, backend);
 
