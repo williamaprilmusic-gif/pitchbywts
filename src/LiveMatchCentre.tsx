@@ -31,6 +31,10 @@ function readQueue(key: string): PendingEvent[] {
   }
 }
 
+function normalizeTeam(value: unknown) {
+  return String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
 export default function LiveMatchCentre({ role, setNotice }: Props) {
   const [fixtures, setFixtures] = useState<Fixture[]>([]);
   const [selectedId, setSelectedId] = useState('');
@@ -143,9 +147,9 @@ export default function LiveMatchCentre({ role, setNotice }: Props) {
     if (!selectedId && selected) setSelectedId(selected.id);
   }, [selectedId, selected?.id]);
 
-  const homePlayers = useMemo(() => players.filter((player) => player.team === selected?.home), [players, selected?.home]);
-  const awayPlayers = useMemo(() => players.filter((player) => player.team === selected?.away), [players, selected?.away]);
-  const quickPlayers = quickTeam === selected?.home ? homePlayers : quickTeam === selected?.away ? awayPlayers : [];
+  const homePlayers = useMemo(() => players.filter((player) => normalizeTeam(player.team) === normalizeTeam(selected?.home)), [players, selected?.home]);
+  const awayPlayers = useMemo(() => players.filter((player) => normalizeTeam(player.team) === normalizeTeam(selected?.away)), [players, selected?.away]);
+  const quickPlayers = normalizeTeam(quickTeam) === normalizeTeam(selected?.home) ? homePlayers : normalizeTeam(quickTeam) === normalizeTeam(selected?.away) ? awayPlayers : [];
   const starters = new Set(teamSheet?.starters || []);
   const substitutes = new Set(teamSheet?.substitutes || []);
   const offPlayers = quickPlayers.filter((player) => starters.has(player.memberRef));
@@ -326,7 +330,7 @@ export default function LiveMatchCentre({ role, setNotice }: Props) {
             <span className='step-label'>1 · TEAM</span>
             <div className='team-tap-row'><button className={`team-tap ${quickTeam === selected.home ? 'selected' : ''}`} onClick={() => { setQuickTeam(selected.home); setQuickPlayer(''); }}>{selected.home}</button><button className={`team-tap ${quickTeam === selected.away ? 'selected' : ''}`} onClick={() => { setQuickTeam(selected.away); setQuickPlayer(''); }}>{selected.away}</button></div>
 
-            {['Goal', 'Yellow card', 'Red card'].includes(quickType) && <><span className='step-label'>2 · PLAYER</span><div className='player-tap-grid'>{quickPlayers.map((player) => <button key={player.memberRef} className={`player-tap ${quickPlayer === player.memberRef ? 'selected' : ''}`} onClick={() => setQuickPlayer(player.memberRef)}><b>{player.number}</b><span>{player.name}</span></button>)}</div></>}
+            {['Goal', 'Yellow card', 'Red card'].includes(quickType) && <><span className='step-label'>2 · PLAYER / GOALSCORER</span>{quickPlayers.length ? <div className='player-tap-grid'>{quickPlayers.map((player) => <button type='button' key={player.memberRef} className={`player-tap ${quickPlayer === player.memberRef ? 'selected' : ''}`} onClick={() => setQuickPlayer(player.memberRef)}><b>{player.number}</b><span>{player.name}</span></button>)}</div> : <div className='empty-state'><h3>No registered players found for {quickTeam || 'this team'}</h3><p>Register the team players first, then return to the live match.</p></div>}</>}
 
             {quickType === 'Substitution' && <div className='admin-grid'><div><span className='step-label'>2 · OFF</span><select value={quickOff} onChange={(event) => setQuickOff(event.target.value)}><option value=''>Player off</option>{(offPlayers.length ? offPlayers : quickPlayers).map((player) => <option key={player.memberRef} value={player.memberRef}>{player.number} · {player.name}</option>)}</select></div><div><span className='step-label'>3 · ON</span><select value={quickOn} onChange={(event) => setQuickOn(event.target.value)}><option value=''>Player on</option>{(onPlayers.length ? onPlayers : quickPlayers).map((player) => <option key={player.memberRef} value={player.memberRef}>{player.number} · {player.name}</option>)}</select></div></div>}
 
