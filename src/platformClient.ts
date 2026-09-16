@@ -9,9 +9,7 @@ type LocalUser = {
 };
 
 type Credentials = { email?: string; password?: string; name?: string };
-
-type ApiFailure = Error & { code?: string; status?: number };
-
+type ApiFailure = Error & { code?: string; status?: number; requestId?: string };
 type WsConnection = {
     connectionId: string | null;
     ready: Promise<void>;
@@ -24,34 +22,67 @@ type WsConnection = {
 
 const USER_KEY = 'pitchline.auth.user';
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+const GET_RETRIES = 2;
+const REQUEST_TIMEOUT_MS = 15000;
 
-async function request<T = unknown>(method: RequestMethod, url: string, body?: unknown): Promise<ApiResponse<T>> {
-    const response = await fetch(`${API_BASE}${url}`, {
-        method,
-        credentials: 'include',
-        headers: body === undefined
-            ? { Accept: 'application/json' }
-            : { Accept: 'application/json', 'Content-Type': 'application/json' },
-        body: body === undefined ? undefined : JSON.stringify(body),
-    });
+function emitMutation(method: RequestMethod, url: string, status: number) {
+    if (typeof window === 'undefined' || method === 'GET') return;
+    window.dispatchEvent(new CustomEvent('pitchline:api-mutation', {
+        detail: { method, path: url, status, at: Date.now() }
+    }));
+}
 
-    const text = await response.text();
-    let data: unknown = null;
-    try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+function sleep(ms: number) {
+    return new Promise(resolve => window.setTimeout(resolve, ms));
+}
 
-    if (!response.ok) {
-        const payload = typeof data === 'object' && data !== null ? data as { message?: unknown; error?: unknown; code?: unknown } : {};
-        const message = payload.message != null
-            ? String(payload.message)
-            : payload.error != null
-                ? String(payload.error)
-                : `Request failed (${response.status})`;
-        const failure = new Error(message) as ApiFailure;
-        failure.code = payload.code != null ? String(payload.code) : `http_${response.status}`;
-        failure.status = response.status;
-        throw failure;
+async function request<T = unknown>(method: RequestMethod, url: string, body?: unknown, attempt = 0): Promise<ApiResponse<T>> {
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : undefined;
+    const timeout = controller ? window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS) : undefined;
+    try {
+        const response = await fetch(`${API_BASE}${url}`, {
+            method,
+            credentials: 'include',
+            cache: method === 'GET' ? 'no-store' : 'default',
+            headers: body === undefined
+                ? { Accept: 'application/json', 'X-Pitchline-Client': 'web' }
+                : { Accept: 'application/json', 'Content-Type': 'application/json', 'X-Pitchline-Client': 'web' },
+            body: body === undefined ? undefined : JSON.stringify(body),
+            signal: controller?.signal,
+        });
+
+        const requestId = response.headers.get('X-Request-Id') || undefined;
+        const text = await response.text();
+        let data: unknown = null;
+        try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+
+        if (!response.ok) {
+            const payload = typeof data === 'object' && data !== null ? data as { message?: unknown; error?: unknown; code?: unknown } : {};
+            const message = payload.message != null
+                ? String(payload.message)
+                : typeof payload.error === 'string'
+                    ? payload.error
+                    : payload.error && typeof payload.error === 'object' && 'message' in payload.error
+                        ? String((payload.error as { message?: unknown }).message)
+                        : `Request failed (${response.status})`;
+            const failure = new Error(message) as ApiFailure;
+            failure.code = payload.code != null ? String(payload.code) : `http_${response.status}`;
+            failure.status = response.status;
+            failure.requestId = requestId;
+            throw failure;
+        }
+        emitMutation(method, url, response.status);
+        return { data: data as T };
+    } catch (error) {
+        const canRetry = method === 'GET' && attempt < GET_RETRIES && (!('status' in (error as object)) || Number((error as ApiFailure).status || 0) >= 500);
+        if (canRetry) {
+            await sleep(350 * (attempt + 1));
+            return request<T>(method, url, body, attempt + 1);
+        }
+        throw error;
+    } finally {
+        if (timeout) window.clearTimeout(timeout);
     }
-    return { data: data as T };
 }
 
 function readStoredUser(): LocalUser | null {
@@ -67,6 +98,7 @@ function writeStoredUser(user: LocalUser | null) {
     try {
         if (user) localStorage.setItem(USER_KEY, JSON.stringify(user));
         else localStorage.removeItem(USER_KEY);
+        if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('pitchline:auth-change', { detail: user }));
     } catch { /* optional browser storage */ }
 }
 
@@ -88,7 +120,7 @@ export const auth = {
     isSignedIn: () => Boolean(readStoredUser()),
     getUser: async (): Promise<LocalUser | null> => {
         try {
-            const response = await request<{ user: LocalUser }>('GET', '/api/auth/me');
+            const response = await request<{ user: LocalUser; role?: string }>('GET', '/api/auth/me');
             writeStoredUser(response.data.user);
             return response.data.user;
         } catch {
