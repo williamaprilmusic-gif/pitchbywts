@@ -9,7 +9,7 @@ on:
       base_url:
         description: 'Production URL to test'
         required: false
-        default: 'https://pitchline-theta.vercel.app'
+        default: 'https://pitchline-william-april.vercel.app'
         type: string
 
 permissions:
@@ -20,7 +20,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  PITCHLINE_BASE_URL: ${{ inputs.base_url || 'https://pitchline-theta.vercel.app' }}
+  PITCHLINE_BASE_URL: ${{ inputs.base_url || 'https://pitchline-william-april.vercel.app' }}
   PITCHLINE_QA_EMAIL: ${{ secrets.PITCHLINE_QA_EMAIL }}
   PITCHLINE_QA_PASSWORD: ${{ secrets.PITCHLINE_QA_PASSWORD }}
 
