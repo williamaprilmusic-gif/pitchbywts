@@ -88,10 +88,14 @@ export function getSessionUser(req: IncomingMessage) {
 export function setSessionCookie(res: ServerResponse, user: AuthUser) {
   const token = encode(user);
   res.setHeader('Set-Cookie', `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${SESSION_TTL_SECONDS}`);
+  // The cookie remains the primary HttpOnly session. This signed header is a fallback
+  // for browser environments where the Vercel host does not persist the session cookie.
+  res.setHeader('X-Pitchline-Session', token);
 }
 
 export function clearSessionCookie(res: ServerResponse) {
   res.setHeader('Set-Cookie', `${SESSION_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`);
+  res.setHeader('X-Pitchline-Session', '');
 }
 
 export const sessionStorageKey = SESSION_STORAGE_KEY;
