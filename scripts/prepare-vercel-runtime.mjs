@@ -7,9 +7,9 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const entryPath = path.join(root, 'server', 'apiEntrypoint.ts');
 if (!fs.existsSync(entryPath)) throw new Error('Pitchline API entrypoint is missing.');
 
-// Vercel builds must not mutate tracked source files. Older preparation logic rewrote
-// source files in-place, which coupled builds to previous build runs. Transform only a
-// temporary entry located beside the real entry so relative imports keep their context.
+// Keep Vercel builds deterministic and side-effect free. Older AppDeploy-era
+// preparation mutated tracked source files before bundling. The current build
+// transforms the entry in memory and preserves its original module resolution root.
 const original = fs.readFileSync(entryPath, 'utf8');
 const transformed = original
   .replace("from './appdeployCompat';", "from './appdeployCompat.ts';")
@@ -19,25 +19,21 @@ const transformed = original
     "relatedPlayer: String(input.relatedPlayer || input.player || '').trim(),"
   );
 
-const buildDir = path.join(root, 'server', '.vercel-build');
-fs.mkdirSync(buildDir, { recursive: true });
-const tempEntry = path.join(buildDir, 'apiEntrypoint.ts');
-fs.writeFileSync(tempEntry, transformed);
-
-try {
-  buildSync({
-    entryPoints: [tempEntry],
-    outfile: path.join(root, 'server', 'apiRuntime.mjs'),
-    bundle: true,
-    platform: 'node',
-    format: 'esm',
-    target: 'node24',
-    packages: 'external',
-    legalComments: 'none',
-    sourcemap: false,
-  });
-} finally {
-  fs.rmSync(buildDir, { recursive: true, force: true });
-}
+buildSync({
+  stdin: {
+    contents: transformed,
+    resolveDir: path.dirname(entryPath),
+    sourcefile: 'server/apiEntrypoint.ts',
+    loader: 'ts',
+  },
+  outfile: path.join(root, 'server', 'apiRuntime.mjs'),
+  bundle: true,
+  platform: 'node',
+  format: 'esm',
+  target: 'node24',
+  packages: 'external',
+  legalComments: 'none',
+  sourcemap: false,
+});
 
 console.log('Pitchline Vercel runtime bundle generated without mutating tracked source.');
