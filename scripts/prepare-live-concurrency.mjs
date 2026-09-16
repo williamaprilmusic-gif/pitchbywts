@@ -19,8 +19,13 @@ const apiPath = 'server/apiEntrypoint.ts';
 let api = fs.readFileSync(apiPath, 'utf8');
 if (!api.includes('acquireLiveLock')) {
   const duplicateMarker = "  if (request.method === 'POST' && pathname === '/api/live-match/events-v2' && actor && await isLfaAdmin(actor.userId)) {";
+  // Do not lock /api/live-match/start here. That route has a dedicated Vercel
+  // boundary handler which returns early after delegating to the legacy router,
+  // bypassing the generic release section below. Locking it therefore leaves a
+  // 30-second fixture lock and makes the immediately-following first event return
+  // HTTP 409 live_match_busy. Start itself is already state-guarded by the backend.
   const lockCode = [
-    "  const liveMutationRoutes = ['/api/live-match/events-v2','/api/live-match/events','/api/live-match/undo','/api/live-match/start','/api/live-match/pause','/api/live-match/resume','/api/live-match/finish'];",
+    "  const liveMutationRoutes = ['/api/live-match/events-v2','/api/live-match/events','/api/live-match/undo','/api/live-match/pause','/api/live-match/resume','/api/live-match/finish'];",
     "  const liveMutation = mutation && liveMutationRoutes.includes(pathname);",
     "  const liveFixtureId = String(requestBody.fixtureId || '').trim();",
     "  const liveLockOwner = actor ? `${reqId}:${actor.userId}` : '';",
@@ -36,10 +41,12 @@ if (!api.includes('acquireLiveLock')) {
   ].join('\n');
   if (!api.includes(duplicateMarker)) throw new Error('Concurrency patch: duplicate marker not found');
   api = api.replace(duplicateMarker, `${lockCode}${duplicateMarker}`);
+
   const earlyReturn = "        send(response, 200, current, reqId);\n        await writeAudit({ requestId: reqId, actorId: actor.userId, actorEmail: actor.email, method: request.method || 'POST', path: pathname, outcome: 'idempotent-replay', duplicateEventId: duplicate.id, fixtureId, ip: requestIp(request) });\n        return;";
   const earlyNew = "        send(response, 200, current, reqId);\n        await writeAudit({ requestId: reqId, actorId: actor.userId, actorEmail: actor.email, method: request.method || 'POST', path: pathname, outcome: 'idempotent-replay', duplicateEventId: duplicate.id, fixtureId, ip: requestIp(request) });\n        if (liveLockAcquired) { await db.releaseLiveLock(liveFixtureId, liveLockOwner); liveLockAcquired = false; }\n        return;";
   if (!api.includes(earlyReturn)) throw new Error('Concurrency patch: idempotent return not found');
   api = api.replace(earlyReturn, earlyNew);
+
   const releaseMarker = "  if (mutation) await writeAudit({ requestId: reqId, actorId: actor?.userId, actorEmail: actor?.email, method: request.method || 'GET', path: pathname, status: response.statusCode || 200, ip: requestIp(request) });";
   if (!api.includes(releaseMarker)) throw new Error('Concurrency patch: post-handler marker not found');
   api = api.replace(releaseMarker, "  if (liveLockAcquired) { await db.releaseLiveLock(liveFixtureId, liveLockOwner); liveLockAcquired = false; }\n" + releaseMarker);
@@ -47,10 +54,8 @@ if (!api.includes('acquireLiveLock')) {
 }
 
 // The legacy live-match routes share a notification helper that historically
-// attempted ws.send([]) when nobody was subscribed. Some WebSocket adapters
-// reject an empty recipient list, which could turn an otherwise successful
-// mutation into HTTP 500. Patch that helper at build time to make zero
-// subscribers a normal no-op.
+// attempted ws.send([]) when nobody was subscribed. Make zero subscribers a
+// normal no-op so realtime notification cannot turn a successful mutation into 500.
 const backendPath = 'backend/index.ts';
 let backend = fs.readFileSync(backendPath, 'utf8');
 const unsafeNotify = "if(ids)await ws.send(ids,{v:1,type:'entity.update',payload:{entity_type:entityType,entity_id:entityId,data}});";
