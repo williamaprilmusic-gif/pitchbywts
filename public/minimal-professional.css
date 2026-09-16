@@ -1,0 +1,65 @@
+/* Pitchline minimal professional visual layer */
+:root{
+  --pl-bg:#f6f8f7;
+  --pl-card:#ffffff;
+  --pl-ink:#17211c;
+  --pl-muted:#7b8781;
+  --pl-line:#e1e7e3;
+  --pl-soft:#f0f4f1;
+  --pl-accent:#9dbb5c;
+  --pl-dark:#111916;
+}
+html,body{background:var(--pl-bg)!important;color:var(--pl-ink)!important}
+body{font-size:14px;-webkit-font-smoothing:antialiased}
+.app-shell{background:var(--pl-bg)!important}
+.card{background:var(--pl-card)!important;border:1px solid var(--pl-line)!important;border-radius:10px!important;box-shadow:none!important}
+.card:hover{box-shadow:none!important;transform:none!important}
+.primary{background:var(--pl-dark)!important;border-radius:8px!important;padding:9px 13px!important;box-shadow:none!important}
+.primary:hover{background:#1a2721!important}
+.ghost{border:1px solid var(--pl-line)!important;border-radius:8px!important;background:#fff!important;box-shadow:none!important}
+.status{border-radius:7px!important;box-shadow:none!important}
+.status.green{background:#edf4e4!important;color:#526b2f!important}
+.status.amber{background:#f5f0df!important;color:#806827!important}
+.status.blue{background:#e9f0f5!important;color:#466277!important}
+.filter{border-radius:7px!important;box-shadow:none!important}
+.filter.active{background:var(--pl-dark)!important;border-color:var(--pl-dark)!important}
+input,select,textarea{border-color:#d9e1dc!important;border-radius:7px!important;box-shadow:none!important}
+input:focus,select:focus,textarea:focus{border-color:#9caf9f!important;box-shadow:0 0 0 2px #9dbb5c26!important}
+.table-card{border-radius:10px!important;box-shadow:none!important}
+.queue:hover,.tower-fixture:hover{background:#f5f7f5!important}
+.report-card:hover{box-shadow:none!important;transform:none!important}
+.report-card.selected{box-shadow:0 0 0 2px #cbd9b0!important}
+.quick-event{box-shadow:none!important;border-radius:9px!important}
+.quick-event:hover{transform:none!important;box-shadow:0 0 0 1px #cad5ce!important}
+.player-tap,.team-tap{border-radius:8px!important;box-shadow:none!important}
+.player-tap.selected,.team-tap.selected{box-shadow:0 0 0 2px #cadc9f!important}
+.live-banner{border-radius:8px!important}
+
+@media (min-width:901px){
+  .sidebar{width:220px!important;padding:16px 10px!important;box-shadow:none!important}
+  .brand{padding:2px 8px 14px!important}
+  .brand-mark{width:32px!important;height:32px!important;border-radius:8px!important}
+  .season-pill{padding:7px 9px!important;border-radius:8px!important;margin-bottom:8px!important}
+  .nav-item{padding:8px 9px!important;border-radius:7px!important;margin:1px 0!important;gap:9px!important;font-size:12px!important}
+  .nav-item.active{box-shadow:inset 2px 0 var(--pl-accent)!important}
+  .main{margin-left:220px!important}
+  .topbar{height:58px!important;padding:0 24px!important;box-shadow:none!important}
+  .content{padding:24px!important;max-width:1320px!important}
+  .hero-row,.page-header{margin-bottom:18px!important}
+  .hero-row h1,.page-header h1{font-size:28px!important;letter-spacing:-.035em!important}
+  .dashboard-grid,.dashboard-grid.lower{gap:10px!important}
+  .stats-grid{gap:10px!important}
+  .card{padding:16px!important}
+}
+
+@media (max-width:900px){
+  .content{padding:18px!important}
+  .topbar{padding:0 18px!important}
+  .hero-row,.page-header{gap:12px!important}
+  .card{padding:14px!important}
+}
+@media (max-width:560px){
+  .content{padding:14px!important}
+  .hero-row h1,.page-header h1{font-size:25px!important}
+  .card{border-radius:9px!important}
+}
