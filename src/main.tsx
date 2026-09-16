@@ -5,6 +5,8 @@ import InteractionEnhancer from './InteractionEnhancer';
 import LiveSystemStatus from './LiveSystemStatus';
 import ProfessionalSuite from './ProfessionalSuite';
 import OperationsWorkbench from './OperationsWorkbench';
+import OperationalSync from './OperationalSync';
+import ModuleConnectionBridge from './ModuleConnectionBridge';
 import './index.css';
 
 createRoot(document.getElementById('root')!).render(
@@ -14,5 +16,7 @@ createRoot(document.getElementById('root')!).render(
     <InteractionEnhancer />
     <ProfessionalSuite />
     <OperationsWorkbench />
+    <OperationalSync />
+    <ModuleConnectionBridge />
   </StrictMode>
 );
