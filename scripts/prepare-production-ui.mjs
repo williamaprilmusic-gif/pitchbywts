@@ -20,6 +20,7 @@ source = source
   .replace('useState(fallbackPortal)', "useState<PortalState>({team:'',fixtureId:null,availability:'pending',notifications:false,payments:[],announcements:[]})")
   .replace('useState<PortalState>(fallbackPortal)', "useState<PortalState>({team:'',fixtureId:null,availability:'pending',notifications:false,payments:[],announcements:[]})")
   .replace('useState(fallbackInvoices)', 'useState<Invoice[]>([])')
+  .replace('useState<Invoice[]>(fallbackInvoices)', 'useState<Invoice[]>([])')
   .replace("useState('LP-001')", "useState('')")
   .replace("useState('60')", "useState('')")
   .replace("useState('7.5')", "useState('')")
@@ -32,7 +33,7 @@ source = source.replace(
 );
 
 if (source === original) throw new Error('Production UI transformer made no changes; source layout may have changed.');
-if (/const fallbackFixtures:/.test(source) || /Using demo data/.test(source) || /New registration 01/.test(source) || /fallbackPortal/.test(source)) {
+if (/const fallbackFixtures:/.test(source) || /Using demo data/.test(source) || /New registration 01/.test(source) || /fallbackPortal/.test(source) || /fallbackInvoices/.test(source)) {
   throw new Error('Demo fallback content is still present after production transformation.');
 }
 
