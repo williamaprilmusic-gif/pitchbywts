@@ -8,8 +8,13 @@ export default function LiveSystemStatus(){
   useEffect(()=>{
     let disposed=false;
     const check=async()=>{
-      try{await api.get('/api/health');if(!disposed){setState('live');setCheckedAt(Date.now())}}
-      catch{if(!disposed){setState('offline');setCheckedAt(Date.now())}}
+      try{
+        const result = await api.get('/api/_healthcheck');
+        if (result && typeof result === 'object' && 'ok' in result && result.ok === false) throw new Error('Health check failed');
+        if(!disposed){setState('live');setCheckedAt(Date.now())}
+      } catch {
+        if(!disposed){setState('offline');setCheckedAt(Date.now())}
+      }
     };
     void check();
     const id=window.setInterval(check,30000);
