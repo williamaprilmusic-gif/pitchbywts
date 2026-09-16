@@ -56,6 +56,14 @@ async function request<T = unknown>(method: RequestMethod, url: string, body?: u
         let data: unknown = null;
         try { data = text ? JSON.parse(text) : null; } catch { data = text; }
 
+        // The public application intentionally requests a mix of public and protected
+        // resources. A 401 on a GET means the visitor is not signed in; it does not
+        // mean the service is unavailable. Returning an empty protected dataset keeps
+        // one optional endpoint from causing a false global data-sync failure.
+        if (response.status === 401 && method === 'GET') {
+            return { data: null as T };
+        }
+
         if (!response.ok) {
             const payload = typeof data === 'object' && data !== null ? data as { message?: unknown; error?: unknown; code?: unknown } : {};
             const message = payload.message != null
@@ -121,6 +129,10 @@ export const auth = {
     getUser: async (): Promise<LocalUser | null> => {
         try {
             const response = await request<{ user: LocalUser; role?: string }>('GET', '/api/auth/me');
+            if (!response.data?.user) {
+                writeStoredUser(null);
+                return null;
+            }
             writeStoredUser(response.data.user);
             return response.data.user;
         } catch {
