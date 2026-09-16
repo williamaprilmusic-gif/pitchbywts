@@ -21,7 +21,8 @@ type WsConnection = {
 };
 
 const USER_KEY = 'pitchline.auth.user';
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+// Keep browser API calls same-origin so the HttpOnly pitchline_session cookie is always sent to the same Vercel host.
+const API_BASE = '';
 const GET_RETRIES = 2;
 const REQUEST_TIMEOUT_MS = 15000;
 

@@ -48,7 +48,7 @@ export default function LiveMatchCentre({ role, setNotice }: Props) {
   const [busy, setBusy] = useState(false);
   const [now, setNow] = useState(Date.now());
   const connectionRef = useRef<ReturnType<typeof ws.connect> | null>(null);
-  const canManage = role === 'LFA Admin';
+  const canManage = ['LFA Admin', 'Manager', 'Club Manager'].includes(role);
   const queueKey = selectedId ? `pitchline:live-pending:${selectedId}` : '';
 
   const loadFixtures = async () => {

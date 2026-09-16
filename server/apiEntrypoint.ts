@@ -39,6 +39,12 @@ async function isLfaAdmin(userId?: string) {
   return result.items.some(item => String(item.userId) === userId && String(item.role) === 'LFA Admin');
 }
 
+async function isMatchOperator(userId?: string) {
+  if (!userId) return false;
+  const result = await db.list<RecordShape>('user_roles', { limit: 5000 });
+  return result.items.some(item => String(item.userId) === userId && ['LFA Admin', 'Manager', 'Club Manager'].includes(String(item.role)));
+}
+
 async function getUserRole(userId: string) {
   const result = await db.list<RecordShape>('user_roles', { limit: 5000 });
   const found = result.items.find(item => String(item.userId) === userId);
@@ -205,7 +211,7 @@ export default async function api(request: VercelRequest, response: VercelRespon
     const existing = (await db.list<RecordShape>('team_sheets', { limit: 5000 })).items.find(item => String(item.fixtureId || '') === fixtureId);
     if (existing?.id) request.body = { ...requestBody, id: String(existing.id) };
   }
-  if (request.method === 'POST' && pathname === '/api/live-match/events-v2' && actor && await isLfaAdmin(actor.userId)) {
+  if (request.method === 'POST' && pathname === '/api/live-match/events-v2' && actor && await isMatchOperator(actor.userId)) {
     const duplicate = await findDuplicateLiveEvent(requestBody);
     if (duplicate) {
       const fixtureId = String(requestBody.fixtureId || '').trim();
@@ -222,8 +228,8 @@ export default async function api(request: VercelRequest, response: VercelRespon
   // route performs the same persistence, but a non-critical realtime notification or
   // router exception must never turn a successfully persisted kick-off into HTTP 500.
   if (request.method === 'POST' && pathname === '/api/live-match/start') {
-    if (!actor || !(await isLfaAdmin(actor.userId))) {
-      send(response, actor ? 403 : 401, { error: actor ? 'LFA Admin role required' : 'Unauthorized', code: actor ? 'forbidden' : 'not_authenticated' }, reqId);
+    if (!actor || !(await isMatchOperator(actor.userId))) {
+      send(response, actor ? 403 : 401, { error: actor ? 'Match operator role required' : 'Unauthorized', code: actor ? 'forbidden' : 'not_authenticated' }, reqId);
       return;
     }
     try {
