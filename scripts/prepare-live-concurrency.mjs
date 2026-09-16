@@ -9,7 +9,7 @@ if (!compat.includes('pitchline_live_locks')) {
   if (!compat.includes(schemaMarker)) throw new Error('Concurrency patch: schema marker not found');
   compat = compat.replace(schemaMarker, `${schemaMarker}${lockSchema}`);
   const marker = "};\n\nexport const ws =";
-  const methods = `  async acquireLiveLock(fixtureId: string, ownerId: string, ttlMs = 30000) {\n    await ensureSchema();\n    const fixture = String(fixtureId || '').trim();\n    const owner = String(ownerId || '').trim();\n    if (!fixture || !owner) return false;\n    const timestamp = now();\n    const expires = timestamp + Math.max(5000, Math.min(120000, ttlMs));\n    const rows = await sql()\`\n      INSERT INTO pitchline_live_locks(fixture_id, owner_id, acquired_at, expires_at)\n      VALUES(\${fixture}, \${owner}, \${timestamp}, \${expires})\n      ON CONFLICT (fixture_id) DO UPDATE\n      SET owner_id = EXCLUDED.owner_id, acquired_at = EXCLUDED.acquired_at, expires_at = EXCLUDED.expires_at\n      WHERE pitchline_live_locks.expires_at <= \${timestamp} OR pitchline_live_locks.owner_id = \${owner}\n      RETURNING owner_id\n    \`;\n    return rows.length > 0 && String(rows[0].owner_id) === owner;\n  },\n  async releaseLiveLock(fixtureId: string, ownerId: string) {\n    await ensureSchema();\n    const fixture = String(fixtureId || '').trim();\n    const owner = String(ownerId || '').trim();\n    if (!fixture || !owner) return false;\n    const rows = await sql()\`DELETE FROM pitchline_live_locks WHERE fixture_id = \${fixture} AND owner_id = \${owner} RETURNING fixture_id\`;\n    return rows.length > 0;\n  }`;
+  const methods = `  async acquireLiveLock(fixtureId: string, ownerId: string, ttlMs = 30000) {\n    await ensureSchema();\n    const fixture = String(fixtureId || '').trim();\n    const owner = String(ownerId || '').trim();\n    if (!fixture || !owner) return false;\n    const timestamp = now();\n    const expires = timestamp + Math.max(5000, Math.min(120000, ttlMs));\n    const rows = await sql()\`\n      INSERT INTO pitchline_live_locks(fixture_id, owner_id, acquired_at, expires_at)\n      VALUES (\${fixture}, \${owner}, \${timestamp}, \${expires})\n      ON CONFLICT (fixture_id) DO UPDATE\n      SET owner_id = EXCLUDED.owner_id, acquired_at = EXCLUDED.acquired_at, expires_at = EXCLUDED.expires_at\n      WHERE pitchline_live_locks.expires_at <= \${timestamp} OR pitchline_live_locks.owner_id = \${owner}\n      RETURNING owner_id\n    \`;\n    return rows.length > 0 && String(rows[0].owner_id) === owner;\n  },\n  async releaseLiveLock(fixtureId: string, ownerId: string) {\n    await ensureSchema();\n    const fixture = String(fixtureId || '').trim();\n    const owner = String(ownerId || '').trim();\n    if (!fixture || !owner) return false;\n    const rows = await sql()\`DELETE FROM pitchline_live_locks WHERE fixture_id = \${fixture} AND owner_id = \${owner} RETURNING fixture_id\`;\n    return rows.length > 0;\n  }`;
   if (!compat.includes(marker)) throw new Error('Concurrency patch: db end marker not found');
   compat = compat.replace(marker, `,\n${methods}\n${marker}`);
   fs.writeFileSync(compatPath, compat);
@@ -18,7 +18,13 @@ if (!compat.includes('pitchline_live_locks')) {
 const apiPath = 'server/apiEntrypoint.ts';
 let api = fs.readFileSync(apiPath, 'utf8');
 if (!api.includes('acquireLiveLock')) {
-  const duplicateMarker = "  if (request.method === 'POST' && pathname === '/api/live-match/events-v2' && actor && await isLfaAdmin(actor.userId)) {";
+  // Accept both the original and hardened authorization guard so this build step
+  // remains idempotent after the manager authorization repair.
+  const duplicateMarkers = [
+    "  if (request.method === 'POST' && pathname === '/api/live-match/events-v2' && actor && await isLfaAdmin(actor.userId)) {",
+    "  if (request.method === 'POST' && pathname === '/api/live-match/events-v2' && actor && await isMatchOperator(actor.userId)) {",
+  ];
+  const duplicateMarker = duplicateMarkers.find(marker => api.includes(marker));
   // Do not lock /api/live-match/start here. That route has a dedicated Vercel
   // boundary handler which returns early after delegating to the legacy router,
   // bypassing the generic release section below. Locking it therefore leaves a
@@ -39,7 +45,7 @@ if (!api.includes('acquireLiveLock')) {
     "  }",
     "",
   ].join('\n');
-  if (!api.includes(duplicateMarker)) throw new Error('Concurrency patch: duplicate marker not found');
+  if (!duplicateMarker) throw new Error('Concurrency patch: duplicate marker not found');
   api = api.replace(duplicateMarker, `${lockCode}${duplicateMarker}`);
 
   const earlyReturn = "        send(response, 200, current, reqId);\n        await writeAudit({ requestId: reqId, actorId: actor.userId, actorEmail: actor.email, method: request.method || 'POST', path: pathname, outcome: 'idempotent-replay', duplicateEventId: duplicate.id, fixtureId, ip: requestIp(request) });\n        return;";
@@ -69,7 +75,7 @@ if (api.includes(staleStartUpdate)) {
 const backendPath = 'backend/index.ts';
 let backend = fs.readFileSync(backendPath, 'utf8');
 const unsafeNotify = "if(ids)await ws.send(ids,{v:1,type:'entity.update',payload:{entity_type:entityType,entity_id:entityId,data}});";
-const safeNotify = "if(ids.length)await ws.send(ids,{v:1,type:'entity.update',payload:{entity_type:entityType,entity_id:entityId,data}});";
+const safeNotify = "if(ids.length)await ws.send(ids,{v:1,type:'entity.update',payload:{v:1,type:'entity.update',payload:{entity_type:entityType,entity_id:entityId,data}});";
 if (backend.includes(unsafeNotify)) {
   backend = backend.replace(unsafeNotify, safeNotify);
   fs.writeFileSync(backendPath, backend);
