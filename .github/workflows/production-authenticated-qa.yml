@@ -46,3 +46,7 @@ jobs:
 
       - name: Run authenticated production QA
         run: node scripts/production-authenticated-qa.mjs
+
+      - name: Clean automated production QA data
+        if: always()
+        run: node scripts/production-qa-cleanup.mjs
