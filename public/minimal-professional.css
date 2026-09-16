@@ -35,6 +35,16 @@ input:focus,select:focus,textarea:focus{border-color:#9caf9f!important;box-shado
 .player-tap.selected,.team-tap.selected{box-shadow:0 0 0 2px #cadc9f!important}
 .live-banner{border-radius:8px!important}
 
+.workspace-nav{display:grid;gap:6px}
+.nav-group{display:grid;gap:2px}
+.nav-group-head{width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;border:0;background:transparent;color:#819089;padding:8px 9px;border-radius:7px;text-transform:uppercase;letter-spacing:.09em;font-size:9px;font-weight:850;cursor:pointer;text-align:left}
+.nav-group-head:hover{background:#15211c;color:#cbd8d1}
+.nav-group-head.active{color:#dfe9e3;background:#16231d}
+.nav-chevron{transition:transform .12s ease;opacity:.7}
+.nav-chevron.open{transform:rotate(90deg)}
+.nav-group-items{display:grid;gap:1px}
+.nav-group-items .nav-item{margin:0}
+
 @media (min-width:901px){
   .sidebar{width:220px!important;padding:16px 10px!important;box-shadow:none!important}
   .brand{padding:2px 8px 14px!important}
