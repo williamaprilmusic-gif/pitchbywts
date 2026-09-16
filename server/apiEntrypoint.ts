@@ -251,7 +251,10 @@ export default async function api(request: VercelRequest, response: VercelRespon
       let id = old?.id ? String(old.id) : undefined;
       if (id) {
         const updated = await db.update('live_matches', [{ id, record: next }]);
-        if (!updated?.[0]) { send(response, 500, { error: 'Could not start match', code: 'live_match_write_failed' }, reqId); return; }
+        if (!updated?.[0]) {
+          const recovered = await db.add('live_matches', [{ ...next, id }]);
+          if (!recovered?.[0]) { send(response, 500, { error: 'Could not start match', code: 'live_match_write_failed' }, reqId); return; }
+        }
       } else {
         const ids = await db.add('live_matches', [next]);
         id = ids?.[0] ? String(ids[0]) : undefined;
