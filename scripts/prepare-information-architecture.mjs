@@ -86,10 +86,13 @@ if (!source.includes("const [openNavGroups,setOpenNavGroups]")) {
   source = source.replace(stateMarker, `${stateMarker}const [openNavGroups,setOpenNavGroups]=useState<string[]>(['supporter-main','team','club','lfa-operations']);`);
 }
 
-const oldNav = `<nav>{roleItems.filter(item=>item.roles.includes(effectiveRole)).map(item=><Nav key={item.tab} icon={item.icon} label={item.label==='Communications'&&notificationSummary.unread?\`${item.label} · \${notificationSummary.unread}\`:item.label} active={tab===item.tab} onClick={()=>navigate(item.tab)}/>)}</nav>`;
-const groupedNavMarkup = `<nav className='workspace-nav'>{roleNavGroups.filter(group=>group.roles.includes(effectiveRole)).map(group=>{const items=group.items.filter(item=>item.roles.includes(effectiveRole));const open=openNavGroups.includes(group.id);const active=items.some(item=>item.tab===tab);return <div className=\"nav-group\" key={group.id}><button type='button' className={\`nav-group-head \${active?'active':''}\`} onClick={()=>setOpenNavGroups(groups=>groups.includes(group.id)?groups.filter(id=>id!==group.id):[...groups,group.id])}><span>{group.label}</span><ChevronRight size={14} className={open?'nav-chevron open':''}/></button>{open&&<div className='nav-group-items'>{items.map(item=><Nav key={item.tab} icon={item.icon} label={item.label==='Communications'&&notificationSummary.unread?\`${item.label} · \${notificationSummary.unread}\`:item.label} active={tab===item.tab} onClick={()=>navigate(item.tab)}/>)}</div>}</div>})}</nav>`;
-if (!source.includes(oldNav)) throw new Error('Existing flat navigation render not found');
-source = source.replace(oldNav, groupedNavMarkup);
+const navStart = "<nav>{roleItems.filter(item=>";
+const navEnd = "</nav>";
+const navStartIndex = source.indexOf(navStart);
+const navEndIndex = navStartIndex >= 0 ? source.indexOf(navEnd, navStartIndex) : -1;
+if (navStartIndex < 0 || navEndIndex < 0) throw new Error('Existing flat navigation render not found');
+const groupedNavMarkup = `<nav className='workspace-nav'>{roleNavGroups.filter(group=>group.roles.includes(effectiveRole)).map(group=>{const items=group.items.filter(item=>item.roles.includes(effectiveRole));const open=openNavGroups.includes(group.id);const active=items.some(item=>item.tab===tab);return <div className="nav-group" key={group.id}><button type='button' className={\`nav-group-head \${active?'active':''}\`} onClick={()=>setOpenNavGroups(groups=>groups.includes(group.id)?groups.filter(id=>id!==group.id):[...groups,group.id])}><span>{group.label}</span><ChevronRight size={14} className={open?'nav-chevron open':''}/></button>{open&&<div className='nav-group-items'>{items.map(item=><Nav key={item.tab} icon={item.icon} label={item.label==='Communications'&&notificationSummary.unread?\`${item.label} · \${notificationSummary.unread}\`:item.label} active={tab===item.tab} onClick={()=>navigate(item.tab)}/>)}</div>}</div>})}</nav>`;
+source = source.slice(0, navStartIndex) + groupedNavMarkup + source.slice(navEndIndex + navEnd.length);
 
 const roleStateReset = "setUserRole('Supporter');setRole('Supporter');setJoinStatus(null);";
 if (source.includes(roleStateReset)) {
