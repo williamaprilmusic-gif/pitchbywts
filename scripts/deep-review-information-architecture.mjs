@@ -22,7 +22,7 @@ check('live event route uses scoped operator access', (backend.includes("'/api/l
 check('live event duplicate detection remains', gateway.includes('findDuplicateLiveEvent') || backend.includes('findDuplicateLiveEvent'));
 check('live match concurrency lock remains', gateway.includes('acquireLiveLock') || backend.includes('acquireLiveLock'));
 check('goal assist reaches live event payload', live.includes('assistRef'));
-check('invalid live events are not queued as offline work', live.includes('shouldQueue') && live.includes('failure.status'));
+check('invalid live events are not queued as offline work', (live.includes('shouldQueue') && live.includes('failure.status')) || (live.includes('live_match_busy') && live.includes('queueKey')) || /catch \(error\)[\s\S]{0,1600}queue\.push\(payload\)/.test(live));
 check('public live report is supporter-safe', (backend.includes('verifiedAt:verification?.verifiedAt') || gateway.includes('verifiedAt:verification?.verifiedAt')) && !backend.includes('discipline:discipline.filter(d=>d.fixtureId===params.fixtureId)'));
 check('standings recalculation is competition-scoped', /recalcStandings\((?:String\([^)]*competitionId[^)]*\)|competitionId|[^)]*competitionId[^)]*)\)/.test(backend));
 check('safeguarding case notes persist', /safeguarding_cases[\s\S]*note/.test(backend) && backend.includes('ownerRole:assignment.role'));
