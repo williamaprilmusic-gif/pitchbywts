@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/prepare-production-qa-cleanup.mjs && node scripts/prepare-production-sync.mjs && node scripts/prepare-production-ui.mjs && node scripts/prepare-competition-scoped-standings.mjs && node scripts/prepare-security-live-hardening.mjs && node scripts/prepare-minimal-ui-and-workflow-fixes.mjs && node scripts/prepare-information-architecture.mjs && node scripts/prepare-live-lock-repair.mjs && node scripts/prepare-live-concurrency.mjs && node scripts/prepare-live-lock-finally.mjs && node scripts/prepare-live-depth.mjs && node scripts/prepare-runtime-module-resolution.mjs && node scripts/prepare-public-read-access.mjs && node scripts/prepare-live-polling.mjs && node scripts/prepare-competition-platform-template.mjs && node scripts/prepare-competition-platform.mjs && node scripts/prepare-competition-platform-fixes.mjs && node scripts/prepare-competition-operations-syntax.mjs && node scripts/prepare-vercel-runtime.mjs && node scripts/prepare-resource-optimization.mjs && node scripts/deep-review-information-architecture.mjs && node scripts/prepare-pitchline-depth.mjs && node scripts/prepare-pitchline-ui-fix.mjs && node scripts/prepare-pitchline-workflows.mjs && node scripts/prepare-pitchline-matchday-ops.mjs && vite build",
+    "build": "node scripts/prepare-production-qa-cleanup.mjs && node scripts/prepare-production-sync.mjs && node scripts/prepare-production-ui.mjs && node scripts/prepare-competition-scoped-standings.mjs && node scripts/prepare-security-live-hardening.mjs && node scripts/prepare-minimal-ui-and-workflow-fixes.mjs && node scripts/prepare-information-architecture.mjs && node scripts/prepare-live-lock-repair.mjs && node scripts/prepare-live-concurrency.mjs && node scripts/prepare-live-lock-finally.mjs && node scripts/prepare-live-depth.mjs && node scripts/prepare-runtime-module-resolution.mjs && node scripts/prepare-public-read-access.mjs && node scripts/prepare-live-polling.mjs && node scripts/prepare-competition-platform-template.mjs && node scripts/prepare-competition-platform.mjs && node scripts/prepare-competition-platform-fixes.mjs && node scripts/prepare-competition-operations-syntax.mjs && node scripts/prepare-vercel-runtime.mjs && node scripts/prepare-resource-optimization.mjs && node scripts/deep-review-information-architecture.mjs && node scripts/prepare-pitchline-depth.mjs && node scripts/prepare-pitchline-ui-fix.mjs && node scripts/prepare-pitchline-workflows.mjs && node scripts/prepare-pitchline-matchday-ops.mjs && node scripts/prepare-live-depth-finalize.mjs && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -21,8 +21,8 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.3.0",
-    "autoprefixer": "^10.4.0",
-    "postcss": "^8.4.0",
+    "autoprefixer": "10.4.0",
+    "postcss": "^8.0.0",
     "tailwindcss": "^3.4.0",
     "esbuild": "^0.25.12",
     "vite": "^6.0.0"
