@@ -18,12 +18,10 @@ for (const route of liveRoutes) {
   backend = backend.replace(pattern, `$1[requireAuth(),requireAnyRole(['LFA Admin','Manager','Club']),scopedFixtureAccess(async(ctx)=>String((ctx.body as {fixtureId?:string})?.fixtureId||'')),`);
 }
 
-// Invoice status must follow the real current date, not a hard-coded date.
 const invoiceOld = "function invoiceStatus(dueDate:string,status:'Due'|'Paid'|'Overdue'='Due'):'Due'|'Paid'|'Overdue'{if(status==='Paid')return 'Paid';return dueDate<'2026-09-13'?'Overdue':'Due';}";
 const invoiceNew = "function invoiceStatus(dueDate:string,status:'Due'|'Paid'|'Overdue'='Due'):'Due'|'Paid'|'Overdue'{if(status==='Paid')return 'Paid';const today=new Date().toISOString().slice(0,10);return dueDate<today?'Overdue':'Due';}";
 backend = backend.replace(invoiceOld, invoiceNew);
 
-// Persist the factual safeguarding case note; the previous workflow validated it but discarded it.
 const caseMarker = "await db.add('safeguarding_cases',[{playerId,team:player.team,clubId:player.clubId,category:String(input.category||'Safeguarding concern'),severity,status:'Open',ownerRole:assignment.role,createdAt:now,updatedAt:now}]);";
 const caseReplacement = "await db.add('safeguarding_cases',[{playerId,team:player.team,clubId:player.clubId,category:String(input.category||'Safeguarding concern'),severity,status:'Open',ownerRole:assignment.role,note,createdAt:now,updatedAt:now}]);";
 if (backend.includes(caseMarker)) backend = backend.replace(caseMarker, caseReplacement);
@@ -53,7 +51,6 @@ live = live.replace(
   "      player: quickPlayer || undefined,\n      assistRef: quickType === 'Goal' ? quickAssist || undefined : undefined,\n      minute,"
 );
 
-// Only genuine network failures should enter the offline queue. Validation/auth/conflict responses must surface immediately.
 live = live.replace(
   "    } catch {\n      if (queueKey) {",
   "    } catch (error) {\n      const failure = error as Error & { status?: number; code?: string; requestId?: string };\n      const shouldQueue = Boolean(queueKey) && !(typeof failure.status === 'number' && failure.status > 0);\n      if (shouldQueue) {"
@@ -66,7 +63,8 @@ live = live.replace(
 const scorerUiOld = "{['Goal', 'Yellow card', 'Red card'].includes(quickType) && <><span className='step-label'>2 · PLAYER / GOALSCORER</span>{quickPlayers.length ? <div className='player-tap-grid'>{quickPlayers.map((player) => <button type='button' key={player.memberRef} className={`player-tap ${quickPlayer === player.memberRef ? 'selected' : ''}`} onClick={() => setQuickPlayer(player.memberRef)}><b>{player.number}</b><span>{player.name}</span></button>)}</div> : <div className='empty-state'><h3>No registered players found for {quickTeam || 'this team'}</h3><p>Register the team players first, then return to the live match.</p></div>}</>}";
 const scorerUiNew = "{['Goal', 'Yellow card', 'Red card'].includes(quickType) && <><span className='step-label'>2 · PLAYER / GOALSCORER</span>{quickPlayers.length ? <div className='player-tap-grid'>{quickPlayers.map((player) => <button type='button' key={player.memberRef} className={`player-tap ${quickPlayer === player.memberRef ? 'selected' : ''}`} onClick={() => setQuickPlayer(player.memberRef)}><b>{player.number}</b><span>{player.name}</span></button>)}</div> : <div className='empty-state'><h3>No registered players found for {quickTeam || 'this team'}</h3><p>Register the team players first, then return to the live match.</p></div>}{quickType === 'Goal' && quickPlayers.length > 1 && <><span className='step-label'>3 · ASSIST (OPTIONAL)</span><div className='player-tap-grid'>{quickPlayers.filter((player) => player.memberRef !== quickPlayer).map((player) => <button type='button' key={`assist-${player.memberRef}`} className={`player-tap ${quickAssist === player.memberRef ? 'selected' : ''}`} onClick={() => setQuickAssist(player.memberRef)}><b>{player.number}</b><span>{player.name}</span></button>)}</div><small className='muted'>Optional. Leave blank for an unassisted goal.</small></>}</>}";
 if (!live.includes(scorerUiOld)) {
-  if (!live.includes("step-label'>2 · PLAYER / GOALSCORER")) throw new Error('Expected scorer UI anchor not found');
+  const hasKnownScorerAnchor = live.includes("step-label'>2 · PLAYER / GOALSCORER") || live.includes("step-label'>2 · PLAYER / INCIDENT PLAYER");
+  if (!hasKnownScorerAnchor) throw new Error('Expected scorer UI anchor not found');
 } else {
   live = live.replace(scorerUiOld, scorerUiNew);
 }
@@ -77,7 +75,6 @@ live = live.replace(timelineOld, timelineNew);
 
 fs.writeFileSync(livePath, live);
 
-// Keep Matchday Command focused on scheduling/confirmation; live state belongs to Live Match.
 const matchdayPath = 'src/MatchdayCommandCentre.tsx';
 if (fs.existsSync(matchdayPath)) {
   let matchday = fs.readFileSync(matchdayPath, 'utf8');
