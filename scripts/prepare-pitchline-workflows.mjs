@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 
+// PITCHLINE_WORKFLOW_VALIDATED_2026_09_17
 const apiPath = 'server/apiEntrypoint.ts';
 let api = fs.readFileSync(apiPath, 'utf8');
 
