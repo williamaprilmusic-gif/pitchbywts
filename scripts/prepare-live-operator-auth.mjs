@@ -53,6 +53,54 @@ if (!app.includes("{tab==='club-management'&&<ClubManagement")) {
   if (!app.includes(clubAnchor)) throw new Error('Club admin render anchor not found.');
   app = app.replace(clubAnchor, `${clubAnchor} {tab==='club-management'&&<ClubManagement role={effectiveRole} setNotice={setNotice}/>} `);
 }
+
+// Do not fire protected reads while signed out. The previous App-level Promise.all
+// queried member/manager/admin endpoints for every visitor, producing predictable
+// 401s and making protected tabs look broken. Public reads remain available;
+// protected reads start again when authentication succeeds.
+const protectedReads = [
+  '/api/players',
+  '/api/member-portal',
+  '/api/performance',
+  '/api/performance-summary',
+  '/api/appointments',
+  '/api/invoices',
+  '/api/notification-summary',
+];
+for (const route of protectedReads) {
+  const needle = `api.get('${route}')`;
+  const guarded = `signedIn ? api.get('${route}') : Promise.resolve({data:null})`;
+  const index = app.indexOf(needle);
+  if (index >= 0 && !app.slice(Math.max(0,index-20), index).includes('signedIn ?')) {
+    app = app.slice(0,index) + app.slice(index).replace(needle, guarded);
+  }
+}
+
+// Reload data/realtime wiring after authentication changes, but never attempt
+// authenticated subscription writes for a signed-out visitor.
+app = app.replace(
+  "conn.ready.then(()=>{const id=conn.connectionId;if(!id)return;['fixtures','teams','players','registrations','payments','officials','discipline','performance','club-applications','invoices','communications'].forEach(entity=>void api.post('/api/subscriptions',{entity_type:entity,entity_id:'league',connection_id:id}))}).catch(()=>undefined);",
+  "if(signedIn)conn.ready.then(()=>{const id=conn.connectionId;if(!id)return;['fixtures','teams','players','registrations','payments','officials','discipline','performance','club-applications','invoices','communications'].forEach(entity=>void api.post('/api/subscriptions',{entity_type:entity,entity_id:'league',connection_id:id}))}).catch(()=>undefined);"
+);
+app = app.replace(
+  "return()=>{off();conn.disconnect()}},[]);",
+  "return()=>{off();conn.disconnect()}},[signedIn]);"
+);
+
+// Signed-out users can preview the public workspace, but protected workspaces
+// must not be exposed as clickable previews that immediately fail with 401.
+app = app.replace(
+  "const requestRole=async(nextRole:Role)=>{if(!signedIn){setRole(nextRole);setNotice(`${nextRole} workspace preview enabled.`);return}",
+  "const requestRole=async(nextRole:Role)=>{if(!signedIn&&nextRole!=='Supporter'){setRole('Supporter');setNotice('Sign in to access the '+nextRole+' workspace.');return}if(!signedIn){setRole(nextRole);setNotice(`${nextRole} workspace preview enabled.`);return}"
+);
+
+// Give Control Tower an actionable authentication message instead of a generic
+// load failure when a stale/expired session reaches the protected API.
+app = app.replace(
+  "catch{setNotice('Could not load the League Control Tower.')}finally{setLoading(false)}",
+  "catch((error)=>{const failure=error as {status?:number;code?:string};setNotice(failure.status===401?'Sign in to access the League Control Tower.':failure.status===403?'You do not have permission to access the League Control Tower.':'Could not load the League Control Tower.')}finally{setLoading(false)}"
+);
+
 fs.writeFileSync(appPath, app);
 
-console.log('Canonical live operator authorization, Club Manager compatibility, and club workspace rendering applied.');
+console.log('Canonical live operator authorization, Club Manager compatibility, protected-read gating, and control-tower auth handling applied.');
