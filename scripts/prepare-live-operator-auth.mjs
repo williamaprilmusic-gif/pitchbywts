@@ -98,7 +98,7 @@ app = app.replace(
 // load failure when a stale/expired session reaches the protected API.
 app = app.replace(
   "catch{setNotice('Could not load the League Control Tower.')}finally{setLoading(false)}",
-  "catch((error)=>{const failure=error as {status?:number;code?:string};setNotice(failure.status===401?'Sign in to access the League Control Tower.':failure.status===403?'You do not have permission to access the League Control Tower.':'Could not load the League Control Tower.')}finally{setLoading(false)}"
+  "catch(error){const failure=error as {status?:number;code?:string};setNotice(failure.status===401?'Sign in to access the League Control Tower.':failure.status===403?'You do not have permission to access the League Control Tower.':'Could not load the League Control Tower.')}finally{setLoading(false)}"
 );
 
 fs.writeFileSync(appPath, app);
