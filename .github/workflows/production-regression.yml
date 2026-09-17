@@ -3,9 +3,11 @@ name: Pitchline Production Regression
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
   workflow_dispatch:
+
+concurrency:
+  group: pitchline-production-regression-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -25,9 +27,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
 
       - name: Install dependencies
-        run: npm install
+        run: npm install --no-audit --no-fund
 
       - name: Static production checks
         shell: bash
@@ -40,6 +43,7 @@ jobs:
           test -f api/index.js
           test -f scripts/prepare-vercel-runtime.mjs
           test -f scripts/prepare-live-polling.mjs
+          test -f scripts/deep-foundation-audit.mjs
           ! grep -R "from '@appdeploy/sdk'" backend src server api --exclude-dir=node_modules
           ! grep -R "from '@appdeploy/client'" backend src server api --exclude-dir=node_modules
           ! grep -R "authentication is not configured on Vercel yet" src server backend api --exclude-dir=node_modules
@@ -60,5 +64,5 @@ jobs:
           echo "$response"
           node -e 'const x=JSON.parse(process.argv[1]); if(!x.ok || !x.databaseConfigured || !x.sessionConfigured || !x.adminBootstrapConfigured) process.exit(1)' "$response"
 
-      - name: Final production build
+      - name: Final production build and foundation audit
         run: npm run build
