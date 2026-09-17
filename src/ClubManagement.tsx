@@ -24,7 +24,7 @@ export default function ClubManagement({ role, setNotice }:Props){
   const [teamForm,setTeamForm]=useState({name:'',ageGroup:'U14'});
   const [transferForm,setTransferForm]=useState({playerRef:'',toTeam:''});
   const connRef=useRef<ReturnType<typeof ws.connect>|null>(null);
-  const canManage=role==='LFA Admin'||role==='Club';
+  const canManage=role==='LFA Admin'||role==='Club'||role==='Club Manager';
 
   const load=async()=>{
     setLoading(true);
