@@ -2,6 +2,12 @@ import fs from 'node:fs';
 
 const path = 'src/App.tsx';
 let source = fs.readFileSync(path, 'utf8');
+const appliedMarker = 'PITCHLINE_INFORMATION_ARCHITECTURE_APPLIED';
+
+if (source.includes(appliedMarker)) {
+  console.log('Pitchline information architecture already applied; skipping duplicate source mutation.');
+  process.exit(0);
+}
 
 const start = "const roleItems:Array<{tab:Tab;label:string;icon:React.ReactNode;roles:Role[]}>= [";
 const end = "];\nfunction canSee(role:Role,tab:Tab){return roleItems.some(item=>item.tab===tab&&item.roles.includes(role));}";
@@ -99,5 +105,6 @@ if (source.includes(roleStateReset)) {
   source = source.replace(roleStateReset, roleStateReset + "setOpenNavGroups(['supporter-main']);");
 }
 
+source = `/* ${appliedMarker} */\n${source}`;
 fs.writeFileSync(path, source);
 console.log('Pitchline information architecture grouped by role and collapsible workspace.');
