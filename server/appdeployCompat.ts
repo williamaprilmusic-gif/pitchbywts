@@ -58,7 +58,12 @@ const now = () => Date.now();
 export const db = {
   async list<T = StoredRecord>(namespace: string, options: { limit?: number } = {}) {
     await ensureSchema();
-    const limit = Math.max(1, Math.min(5000, Number(options.limit || 100)));
+    // Competition context is control-plane data and must not be truncated at 100 rows.
+    // Keep the higher bound scoped to that namespace so normal requests remain resource-friendly.
+    const requestedLimit = options.limit === undefined
+      ? (namespace === 'competition_catalog' ? 5000 : 100)
+      : Number(options.limit);
+    const limit = Math.max(1, Math.min(5000, requestedLimit));
     const rows = await sql()`
       SELECT id, record
       FROM pitchline_records
@@ -171,7 +176,7 @@ function compilePattern(pattern: string) {
       names.push(part.slice(1));
       return '([^/]+)';
     }
-    return part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return part.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');
   });
   return { names, regex: new RegExp(`^/${parts.join('/')}/?$`) };
 }
