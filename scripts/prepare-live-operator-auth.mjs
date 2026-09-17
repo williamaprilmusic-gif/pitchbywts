@@ -34,7 +34,7 @@ app = app.replace(
 );
 app = app.replace(
   "function canSee(role:Role,tab:Tab){return roleItems.some(item=>item.tab===tab&&item.roles.includes(role));}",
-  "function canSee(role:Role,tab:Tab){const effective=role==='Club Manager'?'Manager':role;return roleItems.some(item=>item.tab===tab&&item.roles.includes(effective));}"
+  "function canSee(role:Role,tab:Tab){const allowedRole=role==='Club Manager'?null:role;return roleItems.some(item=>item.tab===tab&&(allowedRole?item.roles.includes(allowedRole):item.roles.includes('Manager')||item.roles.includes('Club')));}"
 );
 app = app.replace(
   "['Supporter','Manager','Club','LFA Admin'].includes(saved)",
@@ -48,6 +48,11 @@ app = app.replace(
   "role==='Manager'?{eyebrow:'MANAGER WORKSPACE'",
   "(role==='Manager'||role==='Club Manager')?{eyebrow:'MANAGER WORKSPACE'"
 );
+const clubAnchor = "{tab==='club'&&<ClubAdmin registrations={registrations} payments={payments} approve={approve} announcement={announcement} setAnnouncement={setAnnouncement} sendAnnouncement={sendAnnouncement} navigate={navigate}/>}";
+if (!app.includes("{tab==='club-management'&&<ClubManagement")) {
+  if (!app.includes(clubAnchor)) throw new Error('Club admin render anchor not found.');
+  app = app.replace(clubAnchor, `${clubAnchor} {tab==='club-management'&&<ClubManagement role={effectiveRole} setNotice={setNotice}/>} `);
+}
 fs.writeFileSync(appPath, app);
 
-console.log('Canonical live operator authorization and Club Manager role compatibility applied.');
+console.log('Canonical live operator authorization, Club Manager compatibility, and club workspace rendering applied.');
