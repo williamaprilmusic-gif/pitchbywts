@@ -17,7 +17,7 @@ permissions:
 
 concurrency:
   group: pitchline-production-qa
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 env:
   PITCHLINE_BASE_URL: ${{ inputs.base_url || 'https://pitchline-william-april.vercel.app' }}
@@ -37,12 +37,16 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
 
       - name: Validate required secrets
         run: |
           set -euo pipefail
           test -n "$PITCHLINE_QA_EMAIL" || { echo 'Missing GitHub Secret: PITCHLINE_QA_EMAIL'; exit 2; }
           test -n "$PITCHLINE_QA_PASSWORD" || { echo 'Missing GitHub Secret: PITCHLINE_QA_PASSWORD'; exit 2; }
+
+      - name: Install QA dependencies
+        run: npm install --no-audit --no-fund
 
       - name: Run authenticated production QA
         run: node scripts/production-authenticated-qa.mjs
