@@ -17,20 +17,20 @@ if (!compat.includes('pitchline_live_locks')) {
 
 const apiPath = 'server/apiEntrypoint.ts';
 let api = fs.readFileSync(apiPath, 'utf8');
-if (!api.includes('acquireLiveLock')) {
+if (!api.includes('const liveMutationRoutes =')) {
   const duplicateMarkers = [
     "  if (request.method === 'POST' && pathname === '/api/live-match/events-v2' && actor && await isLfaAdmin(actor.userId)) {",
     "  if (request.method === 'POST' && pathname === '/api/live-match/events-v2' && actor && await isMatchOperator(actor.userId)) {",
   ];
   const duplicateMarker = duplicateMarkers.find(marker => api.includes(marker));
   const lockCode = [
-    "  const liveMutationRoutes = ['/api/live-match/events-v2','/api/live-match/events','/api/live-match/undo','/api/live-match/pause','/api/live-match/resume','/api/live-match/finish'];",
+    "  const liveMutationRoutes = ['/api/live-match/start','/api/live-match/events-v2','/api/live-match/events','/api/live-match/undo','/api/live-match/pause','/api/live-match/resume','/api/live-match/finish'];",
     "  const liveMutation = mutation && liveMutationRoutes.includes(pathname);",
     "  const liveFixtureId = String(requestBody.fixtureId || '').trim();",
-    "  const liveLockOwner = actor ? `${reqId}:${actor.userId}` : '';",
+    "  const liveLockOwner = actor && liveFixtureId ? `user:${actor.userId}:fixture:${liveFixtureId}` : '';",
     "  let liveLockAcquired = false;",
     "  if (liveMutation && actor && liveFixtureId) {",
-    "    liveLockAcquired = await db.acquireLiveLock(liveFixtureId, liveLockOwner, 30000);",
+    "    liveLockAcquired = await db.acquireLiveLock(liveFixtureId, liveLockOwner, 10000);",
     "    if (!liveLockAcquired) {",
     "      send(response, 409, { error: 'Live match is busy. Another controller is updating this fixture; please retry.', code: 'live_match_busy', fixtureId: liveFixtureId }, reqId);",
     "      return;",
@@ -68,4 +68,4 @@ if (backend.includes(unsafeNotify)) {
   fs.writeFileSync(backendPath, backend);
 }
 
-console.log('Applied Pitchline live-match concurrency, stale-state recovery and empty-subscriber notification protection.');
+console.log('Applied Pitchline live-match concurrency with duplicate-safe lock injection and stable controller ownership.');
