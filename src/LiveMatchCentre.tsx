@@ -1,3 +1,4 @@
+/* PITCHLINE_LIVE_MATCH_AUDIT_TRIGGER_2026_09_17 */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api, ws } from './platformClient';
 import { AlertTriangle, CheckCircle2, CircleStop, Clock3, CornerUpRight, Flag, Goal, Pause, Play, RefreshCw, Shield, Square, Undo2, Users, WifiOff } from 'lucide-react';
@@ -184,11 +185,11 @@ export default function LiveMatchCentre({ role, setNotice }: Props) {
 
   const submitEvent = async () => {
     if (!selected || !live || live.status !== 'Live' || !quickType) return;
-    if (['Goal', 'Yellow card', 'Red card'].includes(quickType) && (!quickTeam || !quickPlayer)) {
-      setNotice('Select the team and player.');
+    if (['Goal', 'Yellow card', 'Red card', 'Injury', 'Shot', 'Shot on target', 'Foul'].includes(quickType) && (!quickTeam || !quickPlayer)) {
+      setNotice('Select the team and player involved.');
       return;
     }
-    if (['Offside', 'Corner', 'Injury'].includes(quickType) && !quickTeam) {
+    if (['Offside', 'Corner', 'Free kick', 'Goal-kick', 'Penalty', 'Possession', 'VAR / Review'].includes(quickType) && !quickTeam) {
       setNotice('Select the team.');
       return;
     }
@@ -212,8 +213,13 @@ export default function LiveMatchCentre({ role, setNotice }: Props) {
       setLive(response.data);
       setNotice(`${quickType} published at ${minute}'`);
       resetQuick();
-    } catch {
-      if (queueKey) {
+    } catch (error) {
+      const failure = error as Error & { code?: string; status?: number; requestId?: string };
+      const detail = [failure.message, failure.code ? `code: ${failure.code}` : '', failure.requestId ? `request: ${failure.requestId}` : ''].filter(Boolean).join(' · ');
+      if (failure.code === 'live_match_busy' || failure.status === 409 || failure.status === 400) {
+        setNotice(detail || 'Could not record the event.');
+        await loadMatch(selected.id);
+      } else if (queueKey) {
         const queue = readQueue(queueKey);
         queue.push(payload);
         localStorage.setItem(queueKey, JSON.stringify(queue));
@@ -221,7 +227,7 @@ export default function LiveMatchCentre({ role, setNotice }: Props) {
         setNotice('Network unavailable. The event is queued and will sync automatically.');
         resetQuick();
       } else {
-        setNotice('Could not record the event.');
+        setNotice(detail || 'Could not record the event.');
       }
     } finally {
       setBusy(false);
@@ -239,9 +245,7 @@ export default function LiveMatchCentre({ role, setNotice }: Props) {
       const failure = error as Error & { code?: string; status?: number; requestId?: string };
       const detail = [failure.message, failure.code ? `code: ${failure.code}` : '', failure.requestId ? `request: ${failure.requestId}` : ''].filter(Boolean).join(' · ');
       setNotice(detail || 'Could not update match state.');
-      if (path === '/api/live-match/start' && failure.status === 409) {
-        await loadMatch(selected.id);
-      }
+      if (failure.status === 409) await loadMatch(selected.id);
     } finally {
       setBusy(false);
     }
@@ -254,8 +258,9 @@ export default function LiveMatchCentre({ role, setNotice }: Props) {
       const response = await api.post('/api/live-match/undo', { fixtureId: selected.id });
       setLive(response.data);
       setNotice('Last live event reversed; audit entry retained.');
-    } catch {
-      setNotice('Could not reverse the last event.');
+    } catch (error) {
+      const failure = error as Error & { message?: string; code?: string };
+      setNotice(failure.message || 'Could not reverse the last event.');
     } finally {
       setBusy(false);
     }
@@ -268,8 +273,9 @@ export default function LiveMatchCentre({ role, setNotice }: Props) {
       await api.post('/api/live-match/verify', { fixtureId: selected.id });
       setVerified(true);
       setNotice('Official match record verified and locked.');
-    } catch {
-      setNotice('Could not verify the match.');
+    } catch (error) {
+      const failure = error as Error & { message?: string };
+      setNotice(failure.message || 'Could not verify the match.');
     } finally {
       setBusy(false);
     }
@@ -280,79 +286,23 @@ export default function LiveMatchCentre({ role, setNotice }: Props) {
   }
 
   return <>
-    <section className='page-header'>
-      <div><p className='eyebrow'>PITCHLINE · LIVE MATCH</p><h1>Live Match</h1><p className='muted'>Fast one-tap matchday event entry, realtime updates, automatic timestamps and official verification.</p></div>
-      <span className={`status ${live?.status === 'Live' ? 'blue' : live?.status === 'Full time' ? 'green' : 'amber'}`}><Clock3 size={13}/>{live?.status || 'Scheduled'}</span>
-    </section>
-
+    <section className='page-header'><div><p className='eyebrow'>PITCHLINE · LIVE MATCH</p><h1>Live Match</h1><p className='muted'>Fast one-tap matchday event entry, realtime updates, automatic timestamps and official verification.</p></div><span className={`status ${live?.status === 'Live' ? 'blue' : live?.status === 'Full time' ? 'green' : 'amber'}`}><Clock3 size={13}/>{live?.status || 'Scheduled'}</span></section>
     <div className='live-layout'>
-      <div className='card live-main'>
-        <div className='live-selector'>
-          <label className='label'>MATCH</label>
-          <select value={selected.id} onChange={(event) => { setSelectedId(event.target.value); resetQuick(); }}>
-            {fixtures.map((fixture) => <option key={fixture.id} value={fixture.id}>{fixture.home} vs {fixture.away} · {fixture.date} {fixture.time}</option>)}
-          </select>
-          <button className='ghost small' onClick={() => void loadMatch(selected.id)}><RefreshCw size={14}/>Refresh</button>
-        </div>
-
-        <div className='scoreboard'>
-          <div><span>{selected.home}</span><strong>{live?.homeScore ?? selected.homeScore ?? 0}</strong></div>
-          <div className='live-clock'><span className={live?.status === 'Live' ? 'pulse' : ''}>{clock}</span><small>{live?.status || 'Scheduled'}</small></div>
-          <div><strong>{live?.awayScore ?? selected.awayScore ?? 0}</strong><span>{selected.away}</span></div>
-        </div>
-
-        <div className='match-meta'>
-          <span><Clock3 size={14}/>{selected.date} · {selected.time}</span>
-          <span><Users size={14}/>{live?.events?.length || 0} events</span>
-          {live?.rules && <span><Flag size={14}/>{live.rules.ageGroup} rules</span>}
-          {pendingCount > 0 && <span><WifiOff size={14}/>{pendingCount} pending sync</span>}
-          {verified && <span><CheckCircle2 size={14}/>Verified</span>}
-        </div>
-
-        {canManage && <div className='live-controls'>
-          <button className='primary' disabled={busy || live?.status === 'Live' || live?.status === 'Full time'} onClick={() => void changeMatch('/api/live-match/start')}><Play size={15}/>Start Match</button>
-          <button className='ghost' disabled={busy || live?.status !== 'Live'} onClick={() => void changeMatch('/api/live-match/pause', { status: 'Half time' })}><Pause size={15}/>Half Time</button>
-          <button className='ghost' disabled={busy || (live?.status !== 'Half time' && live?.status !== 'Paused')} onClick={() => void changeMatch('/api/live-match/resume')}><Play size={15}/>Second Half</button>
-          <button className='danger-btn' disabled={busy || !live || live.status === 'Full time'} onClick={() => void changeMatch('/api/live-match/finish')}><CircleStop size={15}/>Full Time</button>
-        </div>}
-
-        {canManage && live?.status === 'Live' && <div className='quick-event-panel'>
-          <div className='quick-event-title'><div><span className='label'>LIVE CONTROLS</span><h2>Tap an event</h2></div><span className='status blue'>{clock}</span></div>
-          <div className='quick-event-grid'>
-            {events.filter((event) => allowed.includes(event.type)).map((event) => {
-              const Icon = event.icon;
-              return <button key={event.type} className={`quick-event ${event.accent}`} disabled={busy} onClick={() => chooseEvent(event.type)}><Icon size={24}/><span>{event.label}</span></button>;
-            })}
-          </div>
-
-          {quickType && <div className='quick-step-card'>
-            <div className='quick-step-head'><b>{quickType}</b><button className='ghost small' onClick={resetQuick}>Cancel</button></div>
-            <span className='step-label'>1 · TEAM</span>
-            <div className='team-tap-row'><button className={`team-tap ${quickTeam === selected.home ? 'selected' : ''}`} onClick={() => { setQuickTeam(selected.home); setQuickPlayer(''); }}>{selected.home}</button><button className={`team-tap ${quickTeam === selected.away ? 'selected' : ''}`} onClick={() => { setQuickTeam(selected.away); setQuickPlayer(''); }}>{selected.away}</button></div>
-
-            {['Goal', 'Yellow card', 'Red card'].includes(quickType) && <><span className='step-label'>2 · PLAYER / GOALSCORER</span>{quickPlayers.length ? <div className='player-tap-grid'>{quickPlayers.map((player) => <button type='button' key={player.memberRef} className={`player-tap ${quickPlayer === player.memberRef ? 'selected' : ''}`} onClick={() => setQuickPlayer(player.memberRef)}><b>{player.number}</b><span>{player.name}</span></button>)}</div> : <div className='empty-state'><h3>No registered players found for {quickTeam || 'this team'}</h3><p>Register the team players first, then return to the live match.</p></div>}</>}
-
+      <div className='card live-main'><div className='live-selector'><label className='label'>MATCH</label><select value={selected.id} onChange={(event) => { setSelectedId(event.target.value); resetQuick(); }}>{fixtures.map((fixture) => <option key={fixture.id} value={fixture.id}>{fixture.home} vs {fixture.away} · {fixture.date} {fixture.time}</option>)}</select><button className='ghost small' onClick={() => void loadMatch(selected.id)}><RefreshCw size={14}/>Refresh</button></div>
+        <div className='scoreboard'><div><span>{selected.home}</span><strong>{live?.homeScore ?? selected.homeScore ?? 0}</strong></div><div className='live-clock'><span className={live?.status === 'Live' ? 'pulse' : ''}>{clock}</span><small>{live?.status || 'Scheduled'}</small></div><div><strong>{live?.awayScore ?? selected.awayScore ?? 0}</strong><span>{selected.away}</span></div></div>
+        <div className='match-meta'><span><Clock3 size={14}/>{selected.date} · {selected.time}</span><span><Users size={14}/>{live?.events?.length || 0} events</span>{live?.rules && <span><Flag size={14}/>{live.rules.ageGroup} rules</span>}{pendingCount > 0 && <span><WifiOff size={14}/>{pendingCount} pending sync</span>}{verified && <span><CheckCircle2 size={14}/>Verified</span>}</div>
+        {canManage && <div className='live-controls'><button className='primary' disabled={busy || live?.status === 'Live' || live?.status === 'Full time'} onClick={() => void changeMatch('/api/live-match/start')}><Play size={15}/>Start Match</button><button className='ghost' disabled={busy || live?.status !== 'Live'} onClick={() => void changeMatch('/api/live-match/pause', { status: 'Half time' })}><Pause size={15}/>Half Time</button><button className='ghost' disabled={busy || (live?.status !== 'Half time' && live?.status !== 'Paused')} onClick={() => void changeMatch('/api/live-match/resume')}><Play size={15}/>Second Half</button><button className='danger-btn' disabled={busy || !live || live.status === 'Full time'} onClick={() => void changeMatch('/api/live-match/finish')}><CircleStop size={15}/>Full Time</button></div>}
+        {canManage && live?.status === 'Live' && <div className='quick-event-panel'><div className='quick-event-title'><div><span className='label'>LIVE CONTROLS</span><h2>Tap an event</h2></div><span className='status blue'>{clock}</span></div><div className='quick-event-grid'>{events.filter((event) => allowed.includes(event.type)).map((event) => {const Icon = event.icon;return <button key={event.type} className={`quick-event ${event.accent}`} disabled={busy} onClick={() => chooseEvent(event.type)}><Icon size={24}/><span>{event.label}</span></button>;})}</div>
+          {quickType && <div className='quick-step-card'><div className='quick-step-head'><b>{quickType}</b><button className='ghost small' onClick={resetQuick}>Cancel</button></div><span className='step-label'>1 · TEAM</span><div className='team-tap-row'><button className={`team-tap ${quickTeam === selected.home ? 'selected' : ''}`} onClick={() => { setQuickTeam(selected.home); setQuickPlayer(''); }}>{selected.home}</button><button className={`team-tap ${quickTeam === selected.away ? 'selected' : ''}`} onClick={() => { setQuickTeam(selected.away); setQuickPlayer(''); }}>{selected.away}</button></div>
+            {['Goal','Yellow card','Red card','Injury','Shot','Shot on target','Foul'].includes(quickType) && <><span className='step-label'>2 · PLAYER / INCIDENT PLAYER</span>{quickPlayers.length ? <div className='player-tap-grid'>{quickPlayers.map((player) => <button type='button' key={player.memberRef} className={`player-tap ${quickPlayer === player.memberRef ? 'selected' : ''}`} onClick={() => setQuickPlayer(player.memberRef)}><b>{player.number}</b><span>{player.name}</span></button>)}</div> : <div className='empty-state'><h3>No registered players found for {quickTeam || 'this team'}</h3><p>Register the team players first, then return to the live match.</p></div>}</>}
+            {['Injury','Shot','Shot on target','Foul'].includes(quickType) && <div className='admin-grid incident-detail-field'><div><span className='step-label'>{quickType === 'Injury' ? '3 · INJURY DETAIL' : '3 · DETAIL'}</span><input defaultValue='' placeholder={quickType === 'Injury' ? 'e.g. ankle, head, muscle, stretcher' : 'e.g. open play, header, counter'} /></div></div>}
             {quickType === 'Substitution' && <div className='admin-grid'><div><span className='step-label'>2 · OFF</span><select value={quickOff} onChange={(event) => setQuickOff(event.target.value)}><option value=''>Player off</option>{(offPlayers.length ? offPlayers : quickPlayers).map((player) => <option key={player.memberRef} value={player.memberRef}>{player.number} · {player.name}</option>)}</select></div><div><span className='step-label'>3 · ON</span><select value={quickOn} onChange={(event) => setQuickOn(event.target.value)}><option value=''>Player on</option>{(onPlayers.length ? onPlayers : quickPlayers).map((player) => <option key={player.memberRef} value={player.memberRef}>{player.number} · {player.name}</option>)}</select></div></div>}
-
-            <button className='primary quick-confirm' disabled={busy} onClick={() => void submitEvent()}><CheckCircle2 size={17}/>Confirm {quickType}</button>
-          </div>}
-
-          <div className='quick-footer-actions'><button className='ghost' disabled={busy || verified || !(live.events?.length)} onClick={() => void undo()}><Undo2 size={15}/>Undo Last Event</button><span className='muted small'>Large controls are designed for fast one-handed use.</span></div>
-        </div>}
-
+            <button className='primary quick-confirm' disabled={busy} onClick={() => void submitEvent()}><CheckCircle2 size={17}/>Confirm {quickType}</button></div>}
+          <div className='quick-footer-actions'><button className='ghost' disabled={busy || verified || !(live.events?.length)} onClick={() => void undo()}><Undo2 size={15}/>Undo Last Event</button><span className='muted small'>Large controls are designed for fast one-handed use.</span></div></div>}
         {live?.status === 'Live' && <div className='live-banner'><span className='live-dot'/>LIVE — published updates are visible to authorised viewers in realtime.</div>}
       </div>
-
-      <div className='card live-timeline'>
-        <div className='card-head'><div><span className='label'>OFFICIAL TIMELINE</span><h2>Match events</h2></div><select value={eventFilter} onChange={(event) => setEventFilter(event.target.value)}><option>All</option>{events.map((event) => <option key={event.type}>{event.type}</option>)}<option>Kick-off</option><option>Half time</option><option>Second half</option><option>Full time</option></select></div>
-        {timeline.map((event) => <div className='live-event-row' key={event.id}><span className='event-minute'>{event.minute}'</span><span className='event-icon'>{event.type === 'Goal' ? <Goal size={16}/> : event.type === 'Yellow card' || event.type === 'Red card' ? <Square size={15}/> : event.type === 'Offside' ? <Flag size={15}/> : event.type === 'Substitution' ? <Users size={15}/> : event.type === 'Injury' ? <AlertTriangle size={15}/> : event.type === 'Corner' ? <CornerUpRight size={15}/> : <Clock3 size={15}/>}</span><div><b>{event.type}{event.player ? ` · ${event.player}` : ''}</b><small>{event.team || 'Official'}{event.playerOffRef ? ` · OFF ${event.playerOffRef}` : ''}{event.playerOnRef ? ` · ON ${event.playerOnRef}` : ''}</small></div><time>{new Date(event.createdAt).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</time></div>)}
-        {!timeline.length && <div className='empty-state'><h3>No events recorded</h3><p>Live events appear here with their match minute and system timestamp.</p></div>}
-      </div>
+      <div className='card live-timeline'><div className='card-head'><div><span className='label'>OFFICIAL TIMELINE</span><h2>Match events</h2></div><select value={eventFilter} onChange={(event) => setEventFilter(event.target.value)}><option>All</option>{events.map((event) => <option key={event.type}>{event.type}</option>)}<option>Kick-off</option><option>Half time</option><option>Second half</option><option>Full time</option></select></div>{timeline.map((event) => <div className='live-event-row' key={event.id}><span className='event-minute'>{event.minute}'</span><span className='event-icon'>{event.type === 'Goal' ? <Goal size={16}/> : event.type === 'Yellow card' || event.type === 'Red card' ? <Square size={15}/> : event.type === 'Offside' ? <Flag size={15}/> : event.type === 'Substitution' ? <Users size={15}/> : event.type === 'Injury' ? <AlertTriangle size={15}/> : event.type === 'Corner' ? <CornerUpRight size={15}/> : <Clock3 size={15}/>}</span><div><b>{event.type}{event.player ? ` · ${event.player}` : ''}</b><small>{event.team || 'Official'}{event.playerOffRef ? ` · OFF ${event.playerOffRef}` : ''}{event.playerOnRef ? ` · ON ${event.playerOnRef}` : ''}</small></div><time>{new Date(event.createdAt).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</time></div>)}{!timeline.length && <div className='empty-state'><h3>No events recorded</h3><p>Live events appear here with their match minute and system timestamp.</p></div>}</div>
     </div>
-
-    <div className='card'>
-      <div className='card-head'><div><span className='label'>OFFICIAL RECORD</span><h2>Verification</h2></div><Shield size={19}/></div>
-      <div className='admin-grid'><div><b>{verified ? 'Verified and locked' : 'Awaiting verification'}</b><p className='muted small'>{verified ? 'The final event ledger is locked as an official record.' : 'After full time, the LFA administrator can verify the final record.'}</p></div><button className='primary' disabled={!canManage || busy || live?.status !== 'Full time' || verified} onClick={() => void verify()}><CheckCircle2 size={15}/>Verify Final Record</button></div>
-    </div>
+    <div className='card'><div className='card-head'><div><span className='label'>OFFICIAL RECORD</span><h2>Verification</h2></div><Shield size={19}/></div><div className='admin-grid'><div><b>{verified ? 'Verified and locked' : 'Awaiting verification'}</b><p className='muted small'>{verified ? 'The final event ledger is locked as an official record.' : 'After full time, the LFA administrator can verify the final record.'}</p></div><button className='primary' disabled={!canManage || busy || live?.status !== 'Full time' || verified} onClick={() => void verify()}><CheckCircle2 size={15}/>Verify Final Record</button></div></div>
   </>;
 }
