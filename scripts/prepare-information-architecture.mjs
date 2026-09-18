@@ -27,18 +27,14 @@ const roleNavGroups:RoleNavGroup[]=[
 {tab:'matchday',label:'Matchday',icon:<ClipboardCheck size={18}/>,roles:['Manager']},
 {tab:'performance',label:'Performance',icon:<Shield size={18}/>,roles:['Manager']},
 {tab:'player-family-system',label:'Players & Families',icon:<Users size={18}/>,roles:['Manager']},
-{tab:'safeguarding-compliance',label:'Safeguarding',icon:<Shield size={18}/>,roles:['Manager']}
 ]},
 {id:'club',label:'Club',roles:['Club'],items:[
-{tab:'club',label:'Club Dashboard',icon:<Shield size={18}/>,roles:['Club']},
 {tab:'club-management',label:'Club Management',icon:<Building2 size={18}/>,roles:['Club']},
 {tab:'teams',label:'Teams & Age Groups',icon:<Users size={18}/>,roles:['Club']},
-{tab:'player-registry',label:'Players',icon:<UserPlus size={18}/>,roles:['Club']},
 {tab:'player-family-system',label:'Players & Families',icon:<Users size={18}/>,roles:['Club']},
 {tab:'finance',label:'Finance',icon:<CircleDollarSign size={18}/>,roles:['Club']},
 {tab:'communications',label:'Communications',icon:<Bell size={18}/>,roles:['Club']},
 {tab:'reports',label:'Reports',icon:<ClipboardList size={18}/>,roles:['Club']},
-{tab:'safeguarding-compliance',label:'Safeguarding',icon:<Shield size={18}/>,roles:['Club']}
 ]},
 {id:'league',label:'League & Competition',roles:['LFA Admin'],items:[
 {tab:'registration',label:'Clubs & Registration',icon:<UserPlus size={18}/>,roles:['LFA Admin']},
@@ -46,30 +42,18 @@ const roleNavGroups:RoleNavGroup[]=[
 {tab:'discipline',label:'Discipline',icon:<ClipboardList size={18}/>,roles:['LFA Admin']},
 {tab:'scheduling',label:'Fixtures & Scheduling',icon:<CalendarRange size={18}/>,roles:['LFA Admin']},
 {tab:'competition-operations',label:'Competitions',icon:<Trophy size={18}/>,roles:['LFA Admin']},
-{tab:'competition',label:'Competition Engine',icon:<CalendarDays size={18}/>,roles:['LFA Admin']},
-{tab:'competition-portfolio',label:'Competition Portfolio',icon:<Trophy size={18}/>,roles:['LFA Admin']},
-{tab:'cross-competition',label:'Competition Control',icon:<GitBranch size={18}/>,roles:['LFA Admin']},
 {tab:'control-tower',label:'Control Tower',icon:<Trophy size={18}/>,roles:['LFA Admin']},
 {tab:'matchday-command',label:'Matchday Command',icon:<Radio size={18}/>,roles:['LFA Admin']},
 {tab:'teams',label:'Teams & Age Groups',icon:<Users size={18}/>,roles:['LFA Admin']},
-{tab:'player-registry',label:'Players',icon:<UserPlus size={18}/>,roles:['LFA Admin']}
 ]},
 {id:'governance',label:'Governance & Compliance',roles:['LFA Admin'],items:[
 {tab:'club-management',label:'Clubs',icon:<Building2 size={18}/>,roles:['LFA Admin']},
-{tab:'club-operating-system',label:'Club Operations',icon:<Building2 size={18}/>,roles:['LFA Admin']},
 {tab:'player-family-system',label:'Players & Families',icon:<Users size={18}/>,roles:['LFA Admin']},
-{tab:'safeguarding-compliance',label:'Safeguarding',icon:<Shield size={18}/>,roles:['LFA Admin']},
 {tab:'compliance-governance',label:'Compliance & Governance',icon:<Shield size={18}/>,roles:['LFA Admin']},
 {tab:'access-management',label:'Access & Settings',icon:<Shield size={18}/>,roles:['LFA Admin']},
-{tab:'league-identity',label:'League Identity',icon:<GitBranch size={18}/>,roles:['LFA Admin']}
 ]},
 {id:'executive',label:'Executive & Intelligence',roles:['LFA Admin'],items:[
 {tab:'executive-command',label:'Executive Dashboard',icon:<ClipboardCheck size={18}/>,roles:['LFA Admin']},
-{tab:'intelligence',label:'Intelligence',icon:<Trophy size={18}/>,roles:['LFA Admin']},
-{tab:'automation',label:'Automation',icon:<Sparkles size={18}/>,roles:['LFA Admin']},
-{tab:'predictive',label:'Smart Insights',icon:<Sparkles size={18}/>,roles:['LFA Admin']},
-{tab:'decision-intelligence',label:'Decision Support',icon:<Sparkles size={18}/>,roles:['LFA Admin']},
-{tab:'workflow-automation',label:'Workflows',icon:<Sparkles size={18}/>,roles:['LFA Admin']},
 {tab:'communications',label:'Communications',icon:<Bell size={18}/>,roles:['LFA Admin']},
 {tab:'reports',label:'Reports',icon:<ClipboardList size={18}/>,roles:['LFA Admin']}
 ]}];
