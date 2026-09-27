@@ -147,9 +147,9 @@ async function authEndpoint(request: VercelRequest, response: VercelResponse, pa
       const user: AuthUser = { userId: id, email, name }; setSessionCookie(response, user); send(response, 201, { user, role: 'Supporter', expiresIn: 60 * 60 * 24 * 7 }, reqId); return true;
     }
     const configuredEmail = String(process.env.PITCHLINE_ADMIN_EMAIL || '').trim().toLowerCase();
-    const configuredPassword = String(process.env.PITCHLINE_ADMIN_PASSWORD || '');
+    const configuredPassword = String(process.env.PITCHLINE_ADMIN_PASSWORD || '').trim();
     let user: AuthUser | null = null;
-    if (configuredEmail && configuredPassword && email === configuredEmail && password === configuredPassword) {
+    if (configuredEmail && configuredPassword && email === configuredEmail && password.trim() === configuredPassword) {
       const users = await db.list<RecordShape>('auth_users', { limit: 5000 });
       let found = users.items.find(item => String(item.email || '').toLowerCase() === email);
       const configuredName = String(process.env.PITCHLINE_ADMIN_NAME || 'Pitchline Administrator').trim() || 'Pitchline Administrator';
