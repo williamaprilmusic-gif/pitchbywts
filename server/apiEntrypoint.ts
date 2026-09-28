@@ -51,6 +51,12 @@ async function getUserRole(userId: string) {
   return String(found?.role || 'Supporter');
 }
 
+async function getUserClub(userId: string) {
+  const result = await db.list<RecordShape>('user_roles', { limit: 5000 });
+  const found = result.items.find(item => String(item.userId) === userId);
+  return String(found?.club || '');
+}
+
 async function getProtectedInvoices(user: AuthUser) {
   const roleRows = await db.list<RecordShape>('user_roles', { limit: 5000 });
   const roleRecord = roleRows.items.find(item => String(item.userId) === user.userId);
@@ -129,7 +135,7 @@ async function syncFixtureFromLiveMatch(fixtureId: string) {
 async function authEndpoint(request: VercelRequest, response: VercelResponse, pathname: string, reqId: string) {
   if (pathname === '/api/auth/sign-out' && request.method === 'POST') { clearSessionCookie(response); send(response, 200, { ok: true }, reqId); return true; }
   if (pathname === '/api/auth/me' && request.method === 'GET') { const user = getSessionUser(request); if (!user) send(response, 401, { error: 'Unauthorized', code: 'not_authenticated' }, reqId); else send(response, 200, { user, role: await getUserRole(user.userId) }, reqId); return true; }
-  if (pathname === '/api/my-role' && request.method === 'GET') { const user = getSessionUser(request); if (!user) send(response, 401, { error: 'Unauthorized', code: 'not_authenticated' }, reqId); else send(response, 200, { role: await getUserRole(user.userId), user }, reqId); return true; }
+  if (pathname === '/api/my-role' && request.method === 'GET') { const user = getSessionUser(request); if (!user) send(response, 401, { error: 'Unauthorized', code: 'not_authenticated' }, reqId); else send(response, 200, { role: await getUserRole(user.userId), club: await getUserClub(user.userId), user }, reqId); return true; }
   if (pathname !== '/api/auth/sign-in' && pathname !== '/api/auth/sign-up') return false;
   if (request.method !== 'POST') { send(response, 405, { error: 'Method not allowed' }, reqId); return true; }
   try {

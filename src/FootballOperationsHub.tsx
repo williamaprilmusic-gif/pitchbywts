@@ -9,9 +9,9 @@ type Training = { id:string; title:string; team:string; date:string; startTime:s
 type Communication = { id:string; title:string; message:string; priority:string; createdAt:number };
 type Favourite = { id:string; entityType:string; entityId:string; label:string };
 
-type Props = { role:Role; fixtures:Fixture[]; players:Player[]; communications:Communication[]; navigate:(tab:any)=>void; setNotice:(value:string)=>void };
+type Props = { role:Role; fixtures:Fixture[]; players:Player[]; communications:Communication[]; navigate:(tab:any)=>void; setNotice:(value:string)=>void; embedded?:boolean };
 
-export default function FootballOperationsHub({ role, fixtures, players, communications, navigate, setNotice }: Props) {
+export default function FootballOperationsHub({ role, fixtures, players, communications, navigate, setNotice, embedded = false }: Props) {
   const [training, setTraining] = useState<Training[]>([]);
   const [favourites, setFavourites] = useState<Favourite[]>([]);
   const [title, setTitle] = useState('Team training');
@@ -64,7 +64,7 @@ export default function FootballOperationsHub({ role, fixtures, players, communi
   const roleDescription = role === 'Supporter' ? 'Fixtures, followed teams, live updates and family football information in one place.' : role === 'Manager' ? 'Availability, squad selection, training, matchday and player development from one operating view.' : role === 'Club' ? 'Teams, players, training, fixtures, payments, communications and development in one club view.' : 'Competition, club, matchday, discipline and operational oversight without duplicate workspaces.';
 
   return <>
-    <section className='page-header'>
+    {!embedded && <><section className='page-header'>
       <div><p className='eyebrow'>PITCHLINE OPERATIONS HUB</p><h1>{roleTitle}</h1><p className='muted'>{roleDescription}</p></div>
       <span className='status green'>Role-aware</span>
     </section>
@@ -74,7 +74,7 @@ export default function FootballOperationsHub({ role, fixtures, players, communi
       <Stat icon={<Users/>} label='Players' value={`${players.length}`} detail='players in current scope'/>
       <Stat icon={<Activity/>} label='Training' value={`${training.length}`} detail='scheduled sessions'/>
       <Stat icon={<Bell/>} label='Priority updates' value={`${unreadLike.length}`} detail='important or urgent messages'/>
-    </section>
+    </section></>}
 
     <section className='dashboard-grid'>
       <div className='card'>
