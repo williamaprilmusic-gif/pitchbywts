@@ -157,3 +157,38 @@ button,select,input,textarea{touch-action:manipulation}.primary,.ghost,.filter,.
 .rename-row input{height:38px;min-width:0}
 .rename-btn{margin-left:8px;font-size:12px}
 @media(max-width:560px){.rename-row{grid-template-columns:1fr 1fr}}
+
+/* Design polish: typography, mobile top bar, compact cards */
+body,button,input,select,textarea{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;font-feature-settings:"cv11","ss01"}
+h1{letter-spacing:-.025em;font-weight:700}
+h2,h3{letter-spacing:-.015em}
+.stats-grid strong,.mc-result strong,.large-avatar{font-variant-numeric:tabular-nums}
+html,body{overflow-x:hidden}
+@media (max-width:760px){
+  .topbar{box-sizing:border-box;width:100%;max-width:100vw;padding-right:112px;gap:8px}
+  .topbar .crumb{font-size:0;min-width:0;flex:1 1 auto;overflow:hidden;white-space:nowrap}
+  .topbar .top-actions{flex:0 0 auto;margin-left:0}
+  .topbar .crumb svg{display:none}
+  .topbar .crumb b{font-size:15px;overflow:hidden;text-overflow:ellipsis;display:block}
+  .topbar .avatar{display:none}
+  .system-status{display:none!important}
+  .command-palette-trigger,.pro-suite-trigger{width:36px!important;height:36px!important;min-height:36px!important;top:13px!important}
+  .stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px}
+  .stats-grid>.card,.stats-grid>*{padding:14px!important;min-width:0}
+  .stats-grid strong{font-size:20px}
+  .page-header h1,.page-header+* h1{font-size:28px}
+}
+.fixture-card{padding:14px 16px!important;row-gap:6px}
+.fixture-teams span{display:flex;align-items:center;gap:8px;font-weight:600}
+@media (max-width:760px){
+  .topbar .mobile-menu{flex:0 0 36px;width:36px}
+  .fixture-card{display:grid!important;grid-template-columns:48px minmax(0,1fr) auto!important;align-items:center;gap:6px 12px!important}
+  .fixture-card .date-box{grid-row:1/3;align-self:start}
+  .fixture-card .fixture-teams{grid-column:2;display:grid!important;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto auto;gap:6px 10px;text-align:left}
+  .fixture-card .fixture-teams span{grid-column:1;min-width:0;overflow:hidden;white-space:nowrap;font-size:14px}
+  .fixture-card .fixture-teams b{grid-column:2;grid-row:1/3;align-self:center}
+  .fixture-card .fixture-side{display:flex!important;grid-column:2/4;grid-row:2;flex-wrap:wrap;gap:4px 10px;align-items:center;font-size:12px;text-align:left!important}
+  .fixture-card .fixture-side span{font-size:12px}
+  .fixture-card>.icon-btn{grid-column:3;grid-row:1;align-self:start}
+  .fixture-card .score-editor{grid-column:1/-1}
+}
