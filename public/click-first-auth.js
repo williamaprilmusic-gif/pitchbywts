@@ -14,6 +14,8 @@
     .pitch-auth-actions{display:grid;grid-template-columns:1fr auto;gap:10px;margin-top:18px}.pitch-auth-actions button{min-height:48px;border-radius:12px;padding:0 16px;font:inherit;font-weight:700;cursor:pointer}
     .pitch-auth-submit{border:1px solid #65d995;background:#65d995;color:#07110b}.pitch-auth-cancel{border:1px solid rgba(255,255,255,.14);background:transparent;color:#fff}
     .pitch-auth-status{min-height:20px;margin-top:12px;font-size:13px;color:#ffb3b3}.pitch-auth-status.ok{color:#9df0b8}
+    .pitch-auth-switch{margin-top:14px;font-size:13px;color:#aebbb5;text-align:center}.pitch-auth-switch button{border:0;background:none;color:#6de39f;font:inherit;font-weight:700;cursor:pointer;padding:4px}
+    .pitch-auth-name[hidden]{display:none}
   `;
 
   function ensureStyle() {
@@ -42,11 +44,13 @@
     backdrop.innerHTML = `
       <div class="pitch-auth-modal" role="dialog" aria-modal="true" aria-labelledby="pitch-auth-title">
         <h2 id="pitch-auth-title">Sign in to Pitchline</h2>
-        <p>Enter your Pitchline account details. Your session stays in a secure HttpOnly cookie; this form does not store the password.</p>
+        <p class="pitch-auth-intro">Enter your Pitchline account details. Your session stays in a secure HttpOnly cookie; this form does not store the password.</p>
+        <div class="pitch-auth-field pitch-auth-name" hidden><label for="pitch-auth-name">Full name</label><input id="pitch-auth-name" type="text" autocomplete="name" placeholder="Your name"></div>
         <div class="pitch-auth-field"><label for="pitch-auth-email">Email</label><input id="pitch-auth-email" type="email" autocomplete="username" placeholder="name@example.com"></div>
         <div class="pitch-auth-field"><label for="pitch-auth-password">Password</label><input id="pitch-auth-password" type="password" autocomplete="current-password" placeholder="Your password"></div>
         <div class="pitch-auth-status" aria-live="polite"></div>
         <div class="pitch-auth-actions"><button class="pitch-auth-cancel" type="button">Cancel</button><button class="pitch-auth-submit" type="button">Sign in</button></div>
+        <div class="pitch-auth-switch"><span>New to Pitchline?</span> <button type="button" class="pitch-auth-mode">Create an account</button></div>
       </div>`;
     document.body.appendChild(backdrop);
     const modal = backdrop.querySelector('.pitch-auth-modal');
@@ -55,6 +59,30 @@
     const status = backdrop.querySelector('.pitch-auth-status');
     const cancel = backdrop.querySelector('.pitch-auth-cancel');
     const submit = backdrop.querySelector('.pitch-auth-submit');
+    const nameField = backdrop.querySelector('.pitch-auth-name');
+    const name = backdrop.querySelector('#pitch-auth-name');
+    const title = backdrop.querySelector('#pitch-auth-title');
+    const intro = backdrop.querySelector('.pitch-auth-intro');
+    const switchLabel = backdrop.querySelector('.pitch-auth-switch span');
+    const modeButton = backdrop.querySelector('.pitch-auth-mode');
+    let signUp = false;
+    const submitLabel = () => (signUp ? 'Create account' : 'Sign in');
+    const setMode = next => {
+      signUp = next;
+      nameField.hidden = !signUp;
+      title.textContent = signUp ? 'Create your Pitchline account' : 'Sign in to Pitchline';
+      intro.textContent = signUp
+        ? 'Create an account to follow your club, then use a club invite code under My Portal to join your team. Use at least 10 characters for your password.'
+        : 'Enter your Pitchline account details. Your session stays in a secure HttpOnly cookie; this form does not store the password.';
+      password.setAttribute('autocomplete', signUp ? 'new-password' : 'current-password');
+      switchLabel.textContent = signUp ? 'Already have an account?' : 'New to Pitchline?';
+      modeButton.textContent = signUp ? 'Sign in instead' : 'Create an account';
+      submit.textContent = submitLabel();
+      status.className = 'pitch-auth-status';
+      status.textContent = '';
+      (signUp ? name : email).focus();
+    };
+    modeButton.addEventListener('click', () => setMode(!signUp));
     email.focus();
 
     cancel.addEventListener('click', closeModal);
@@ -66,15 +94,18 @@
       const passwordValue = String(password.value || '');
       status.className = 'pitch-auth-status';
       status.textContent = '';
+      const nameValue = String(name.value || '').trim();
       if (!emailValue || !passwordValue) { status.textContent = 'Email and password are required.'; return; }
+      if (signUp && !nameValue) { status.textContent = 'Enter your name.'; return; }
+      if (signUp && passwordValue.length < 10) { status.textContent = 'Use a password of at least 10 characters.'; return; }
       submit.disabled = true;
-      submit.textContent = 'Signing in…';
+      submit.textContent = signUp ? 'Creating account…' : 'Signing in…';
       try {
-        const response = await fetch('/api/auth/sign-in', {
+        const response = await fetch(signUp ? '/api/auth/sign-up' : '/api/auth/sign-in', {
           method: 'POST',
           credentials: 'include',
           headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: emailValue, password: passwordValue }),
+          body: JSON.stringify(signUp ? { name: nameValue, email: emailValue, password: passwordValue } : { email: emailValue, password: passwordValue }),
         });
         const text = await response.text();
         let data = {};
@@ -86,12 +117,12 @@
         if (!data?.user?.userId) throw new Error('The server did not return a valid user session.');
         saveUser(data.user);
         status.className = 'pitch-auth-status ok';
-        status.textContent = 'Signed in. Loading your workspace…';
+        status.textContent = signUp ? 'Account created. Loading your workspace…' : 'Signed in. Loading your workspace…';
         setTimeout(() => window.location.reload(), 150);
       } catch (error) {
         status.textContent = error instanceof Error ? error.message : 'Sign-in failed.';
         submit.disabled = false;
-        submit.textContent = 'Sign in';
+        submit.textContent = submitLabel();
       }
     };
 
@@ -99,9 +130,15 @@
     password.addEventListener('keydown', e => { if (e.key === 'Enter') void run(); });
   }
 
+  function hasStoredUser() {
+    try { return Boolean(localStorage.getItem(USER_KEY)); } catch { return false; }
+  }
+
   function intercept(event) {
     const button = event.target?.closest?.('button');
     if (!button) return;
+    // When signed in, the icon-only top bar button is "Sign out"; let the app handle it.
+    if (hasStoredUser() && button.closest('.top-actions')) return;
     const text = String(button.innerText || button.getAttribute('aria-label') || '').trim().toLowerCase();
     const isIconOnlyTopbarLogin = button.matches('.top-actions .icon-btn:not(.notification-button):not(.mobile-menu)') && !text;
     if (!/^sign in$/.test(text) && !isIconOnlyTopbarLogin) return;

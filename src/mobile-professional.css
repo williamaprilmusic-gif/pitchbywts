@@ -12,3 +12,38 @@
 
 /* Touch targets and safer forms for matchday use. */
 button,select,input,textarea{touch-action:manipulation}.primary,.ghost,.filter,.pick,.nav-item,.text-btn{min-height:36px}input,select,textarea{font-size:16px}@media(min-width:761px){input,select,textarea{font-size:12px}}
+
+/* Top bar: the status pill, search and Pro Tools triggers are fixed-position widgets.
+   Give each a slot on the right and reserve that space so they never cover the
+   page title, notifications or the sign-in button. */
+.system-status{left:auto!important;right:282px!important;top:17px!important}
+.command-palette-trigger{right:136px!important;top:17px!important}
+.pro-suite-trigger{right:20px!important;top:17px!important}
+.topbar .crumb{min-width:0;overflow:hidden;white-space:nowrap}
+.topbar .top-actions{margin-right:370px}
+.top-actions .icon-btn:first-child{display:grid}
+@media(max-width:760px){
+  .system-status{right:106px!important;top:13px!important;padding:5px!important}
+  .system-status b,.system-status small{display:none!important}
+  .command-palette-trigger{right:60px!important;top:13px!important;width:40px;padding:0!important;justify-content:center}
+  .command-palette-trigger span,.command-palette-trigger kbd{display:none!important}
+  .pro-suite-trigger{right:14px!important;top:13px!important;width:40px;padding:0!important;justify-content:center}
+  .pro-suite-trigger span{display:none!important}
+  .topbar{padding-right:14px!important}
+  .topbar .top-actions{margin-right:140px;gap:6px}
+  .top-actions .avatar{display:none}
+  .crumb>:not(b){display:none}
+}
+
+/* Sidebar navigation: stack groups from the top instead of stretching them to fill the rail. */
+.sidebar nav.workspace-nav{display:flex!important;flex-direction:column;gap:4px}
+.nav-group,.nav-group-items{align-content:start}
+.nav-group-head{min-height:36px!important;height:auto!important}
+.nav-group-items button{min-height:38px!important;height:auto!important}
+
+/* League snapshot rows on the dashboard. */
+.mini-row{display:grid;grid-template-columns:24px minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid #edf2ef;font-size:13px}
+.mini-row:last-child{border-bottom:0}
+.mini-row b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.mini-row span{color:#7d8c85}
+.mini-row .rank{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;background:#f1f5f2;color:#40524a;font-size:11px;font-weight:700}
