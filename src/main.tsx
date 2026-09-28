@@ -1,6 +1,7 @@
 import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import AppRuntime from './AppRuntime';
+import { BrandingProvider } from './branding';
 import InteractionEnhancer from './InteractionEnhancer';
 import LiveSystemStatus from './LiveSystemStatus';
 import ProfessionalSuite from './ProfessionalSuite';
@@ -21,7 +22,7 @@ function RuntimeServices() {
   }, []);
   useEffect(() => { document.documentElement.dataset.pitchlineOnline = String(online); }, [online]);
   return <>
-    <AppRuntime />
+    <BrandingProvider><AppRuntime /></BrandingProvider>
     <LiveSystemStatus />
     <InteractionEnhancer />
     <ProfessionalSuite />
