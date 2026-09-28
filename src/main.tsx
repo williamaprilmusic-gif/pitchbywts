@@ -7,6 +7,7 @@ import ProfessionalSuite from './ProfessionalSuite';
 import OperationalSync from './OperationalSync';
 import ModuleConnectionBridge from './ModuleConnectionBridge';
 import './index.css';
+import './minimal-professional.css';
 import './mobile-professional.css';
 
 function RuntimeServices() {
