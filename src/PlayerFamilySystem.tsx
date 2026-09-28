@@ -22,6 +22,9 @@ export default function PlayerFamilySystem({ setNotice }: { setNotice: (v: strin
   const [attendanceStatus, setAttendanceStatus] = useState('Present');
   const [attendancePlayer, setAttendancePlayer] = useState('');
   const [attendanceFixture, setAttendanceFixture] = useState('');
+  const [fixtureList, setFixtureList] = useState<Array<{ id: string; home: string; away: string; date: string; time: string }>>([]);
+  useEffect(() => { void api.get('/api/fixtures').then(r => { if (Array.isArray(r.data)) setFixtureList(r.data); }).catch(() => undefined); }, []);
+  const fixtureLabel = (id: string) => { const f = fixtureList.find(x => x.id === id); return f ? `${f.home} vs ${f.away} · ${f.date}` : id; };
 
   const load = async () => {
     setLoading(true);
@@ -71,7 +74,7 @@ export default function PlayerFamilySystem({ setNotice }: { setNotice: (v: strin
 
   const saveAttendance = async () => {
     if (!attendancePlayer || !attendanceFixture) {
-      setNotice('Select a player and enter a fixture ID.');
+      setNotice('Select a player and a fixture.');
       return;
     }
     try {
@@ -126,8 +129,8 @@ export default function PlayerFamilySystem({ setNotice }: { setNotice: (v: strin
     <section className='dashboard-grid lower'>
       <div className='card'>
         <div className='card-head'><div><span className='label'>ATTENDANCE & READINESS</span><h2>Match attendance</h2></div><CalendarDays size={19} /></div>
-        {data.role !== 'Supporter' && <><select value={attendancePlayer} onChange={e => setAttendancePlayer(e.target.value)}><option value=''>Select player</option>{data.players.map(p => <option key={p.playerId} value={p.playerId}>{p.name} · {p.team}</option>)}</select><input value={attendanceFixture} onChange={e => setAttendanceFixture(e.target.value)} placeholder='Fixture ID' /><select value={attendanceStatus} onChange={e => setAttendanceStatus(e.target.value)}><option>Present</option><option>Absent</option><option>Late</option><option>Excused</option></select><button className='primary' onClick={() => void saveAttendance()}><ClipboardCheck size={15} />Save attendance</button></>}
-        {playerAttendance.map(a => <div className='admin-row' key={a.id}><div><b>{a.status}</b><small>{a.fixtureId}{a.note ? ` · ${a.note}` : ''}</small></div><span className='status blue'>{new Date(a.updatedAt).toLocaleDateString('en-ZA')}</span></div>)}
+        {data.role !== 'Supporter' && <><select value={attendancePlayer} onChange={e => setAttendancePlayer(e.target.value)}><option value=''>Select player</option>{data.players.map(p => <option key={p.playerId} value={p.playerId}>{p.name} · {p.team}</option>)}</select><select value={attendanceFixture} onChange={e => setAttendanceFixture(e.target.value)} aria-label='Fixture'><option value=''>Select fixture</option>{fixtureList.filter(f => { const team = data.players.find(p => p.playerId === attendancePlayer)?.team; return !team || f.home === team || f.away === team; }).sort((a, b) => `${b.date}${b.time}`.localeCompare(`${a.date}${a.time}`)).map(f => <option key={f.id} value={f.id}>{f.home} vs {f.away} · {f.date}</option>)}</select><select value={attendanceStatus} onChange={e => setAttendanceStatus(e.target.value)}><option>Present</option><option>Absent</option><option>Late</option><option>Excused</option></select><button className='primary' onClick={() => void saveAttendance()}><ClipboardCheck size={15} />Save attendance</button></>}
+        {playerAttendance.map(a => <div className='admin-row' key={a.id}><div><b>{a.status}</b><small>{fixtureLabel(a.fixtureId)}{a.note ? ` · ${a.note}` : ''}</small></div><span className='status blue'>{new Date(a.updatedAt).toLocaleDateString('en-ZA')}</span></div>)}
         {!playerAttendance.length && <div className='empty-state'><h3>No attendance records</h3><p>Attendance will appear after an authorized staff member records it.</p></div>}
       </div>
       <div className='card'>

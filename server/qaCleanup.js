@@ -11,6 +11,18 @@ const isQaTeam = value => /^QA (Home|Away) \d+ U\d+$/i.test(String(value || '').
 const isQaVenue = value => /^Pitchline QA Ground \d+$/i.test(String(value || '').trim());
 const isQaCompetition = value => /^Pitchline Automated QA /i.test(String(value || '').trim());
 
+// Records the old demo seeder inserted into empty tables. Each is matched on every
+// seeded field, so real records that merely share a name are never removed.
+const DEMO_TEAM = 'Liverpool Portland U14';
+const demoPlayers = new Map([['LP-001', 'Player 10'], ['LP-002', 'Player 1'], ['LP-003', 'Player 4'], ['LP-004', 'Player 8'], ['LP-005', 'Player 7'], ['LP-006', 'Player 3']]);
+const demoRegistrations = new Map([['REG-001', 'New registration 01'], ['REG-002', 'New registration 02']]);
+const demoPayments = new Map([['REG-001', ['Registration', 650]], ['REG-002', ['Monthly membership', 350]]]);
+const demoOfficials = new Map([['Referee Pool A', 'Referee'], ['Officials Desk', 'Match commissioner']]);
+const isDemoPlayer = r => demoPlayers.get(String(r?.memberRef || '')) === String(r?.name || '') && String(r?.team || '') === DEMO_TEAM;
+const isDemoRegistration = r => demoRegistrations.get(String(r?.memberRef || '')) === String(r?.name || '');
+const isDemoPayment = r => { const seeded = demoPayments.get(String(r?.memberRef || '')); return Boolean(seeded) && String(r?.item || '') === seeded[0] && Number(r?.amount) === seeded[1]; };
+const isDemoOfficial = r => demoOfficials.get(String(r?.name || '')) === String(r?.role || '');
+
 export async function cleanupProductionQa(request, response) {
   const actor = getSessionUser(request);
   if (!actor) {
@@ -28,7 +40,7 @@ export async function cleanupProductionQa(request, response) {
     return true;
   }
 
-  const namespaces = ['fixtures','live_matches','live_events','official_appointments','team_sheets','matchday_readiness','matchday_status','venues','teams','players','competitions'];
+  const namespaces = ['fixtures','live_matches','live_events','official_appointments','team_sheets','matchday_readiness','matchday_status','venues','teams','players','competitions','registrations','payments','invoices','officials','player_registry'];
   const rowsByNamespace = {};
   for (const namespace of namespaces) {
     rowsByNamespace[namespace] = await database`SELECT id, record FROM pitchline_records WHERE namespace = ${namespace}`;
@@ -53,6 +65,12 @@ export async function cleanupProductionQa(request, response) {
     if (isQaTeam(team) || /^QA (Home|Away) Player \d+$/i.test(String(row.record?.name || ''))) add('players', row.id);
   }
   for (const row of rowsByNamespace.competitions) if (isQaCompetition(row.record?.name)) add('competitions', row.id);
+  for (const row of rowsByNamespace.players) if (isDemoPlayer(row.record)) add('players', row.id);
+  for (const row of rowsByNamespace.player_registry) if (isDemoPlayer(row.record)) add('player_registry', row.id);
+  for (const row of rowsByNamespace.registrations) if (isDemoRegistration(row.record)) add('registrations', row.id);
+  for (const row of rowsByNamespace.payments) if (isDemoPayment(row.record)) add('payments', row.id);
+  for (const row of rowsByNamespace.invoices) if (isDemoPayment(row.record)) add('invoices', row.id);
+  for (const row of rowsByNamespace.officials) if (isDemoOfficial(row.record)) add('officials', row.id);
 
   let removed = 0;
   for (const [namespace, ids] of Object.entries(idsByNamespace)) {
