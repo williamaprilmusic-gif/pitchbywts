@@ -46,6 +46,9 @@ export default function LiveMatchCentre({ role, setNotice }: Props) {
   const [quickType, setQuickType] = useState('');
   const [quickTeam, setQuickTeam] = useState('');
   const [quickPlayer, setQuickPlayer] = useState('');
+  const [goalDetail, setGoalDetail] = useState('Normal');
+  const [quickDetail, setQuickDetail] = useState('');
+  const [quickReview, setQuickReview] = useState('Review requested');
   const [quickOff, setQuickOff] = useState('');
   const [quickOn, setQuickOn] = useState('');
   const [pendingCount, setPendingCount] = useState(0);

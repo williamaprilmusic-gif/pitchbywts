@@ -60,3 +60,46 @@ button,select,input,textarea{touch-action:manipulation}.primary,.ghost,.filter,.
 .form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin:6px 0 12px}
 .form-grid>input,.form-grid>select{width:100%;min-width:0;height:42px;margin:0;box-sizing:border-box;border:1px solid #dfe8e3;border-radius:9px;padding:0 10px;background:#fff;font:inherit}
 .invite-list{display:grid;gap:2px;margin-top:14px}
+
+/* ---- Styles for classes that had no CSS anywhere (deep audit) ---- */
+.empty-state{padding:22px;text-align:center;color:#7d8c85}
+.empty-state h3{margin:0 0 6px;color:#26342e;font-size:15px}
+.empty-state p{margin:0;font-size:13px}
+.danger-btn{display:inline-flex;align-items:center;gap:7px;min-height:38px;padding:0 14px;border-radius:9px;border:1px solid #f0c9c4;background:#fff4f2;color:#b3372b;font-weight:700;cursor:pointer}
+.danger-btn:hover:not(:disabled){background:#ffe9e5}
+.danger-btn:disabled{opacity:.5;cursor:not-allowed}
+.action-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
+.roadmap-items{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.roadmap-items>span{padding:5px 9px;border-radius:999px;background:#f1f5f2;color:#40524a;font-size:12px}
+.league-table{display:grid;gap:0;border:1px solid #e3ebe6;border-radius:12px;overflow:hidden;background:#fff}
+.league-table .table-row:last-child{border-bottom:0}
+
+/* Live Match */
+.live-layout{display:grid;gap:16px}
+.live-main{min-width:0}
+.live-selector{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.live-selector select{flex:1;min-width:220px;height:40px}
+.scoreboard{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:14px;padding:18px;border-radius:14px;background:#10221a;color:#fff;margin-bottom:12px}
+.scoreboard>div{display:flex;flex-direction:column;align-items:center;text-align:center;gap:4px;min-width:0}
+.scoreboard>div>span{font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.scoreboard>div>strong{font-size:40px;line-height:1;font-weight:800}
+.live-clock{padding:0 10px}
+.live-clock>strong,.live-clock>b{font-size:26px;font-variant-numeric:tabular-nums}
+.live-clock>span{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#b6d6a0}
+.pulse{animation:pitchline-pulse 1.6s ease-in-out infinite}
+@keyframes pitchline-pulse{0%,100%{opacity:1}50%{opacity:.45}}
+.match-meta{display:flex;flex-wrap:wrap;gap:14px;color:#6f7f77;font-size:13px;margin:6px 0 12px}
+.match-meta>span{display:inline-flex;align-items:center;gap:6px}
+.live-controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 14px}
+.live-controls>button{display:inline-flex;align-items:center;gap:7px;min-height:38px}
+.live-timeline{margin-top:16px}
+.live-intelligence-panel{background:#fff}
+.intel-grid>div{background:#f7faf8!important}
+@media(max-width:760px){.scoreboard{padding:14px;gap:8px}.scoreboard>div>strong{font-size:30px}.live-clock>strong,.live-clock>b{font-size:20px}}
+
+/* Matchday Command */
+.command-fixtures{display:grid;gap:6px}
+.command-detail{display:grid;gap:12px;min-width:0}
+.postmatch-signoff{display:grid;gap:10px;margin-top:12px;padding:14px;border:1px dashed #cfddd5;border-radius:12px;background:#fbfdfb}
+.scoreboard>div:last-child{flex-direction:column-reverse}
+.command-fixtures,.command-fixtures>*{align-content:start;align-self:start}
