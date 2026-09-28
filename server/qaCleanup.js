@@ -72,6 +72,44 @@ export async function cleanupProductionQa(request, response) {
   for (const row of rowsByNamespace.invoices) if (isDemoPayment(row.record)) add('invoices', row.id);
   for (const row of rowsByNamespace.officials) if (isDemoOfficial(row.record)) add('officials', row.id);
 
+  // Duplicate same-name teams (left by the old demo seeder racing on an empty table).
+  // Only teams outside any competition are considered; the copy with the most games
+  // played is kept, and a copy is only removed when no other record references its id.
+  const teamGroups = new Map();
+  for (const row of rowsByNamespace.teams) {
+    const record = row.record || {};
+    if (record.competitionId) continue;
+    const key = `${String(record.name || '').trim().toLowerCase()}|${String(record.ageGroup || '')}`;
+    if (!key.startsWith('|')) (teamGroups.get(key) || teamGroups.set(key, []).get(key)).push(row);
+  }
+  let duplicateTeamsKept = 0;
+  const standingsUpdates = [];
+  const referenceCount = async (id) => Number((await database`SELECT count(*)::int AS n FROM pitchline_records WHERE NOT (namespace = 'teams' AND id = ${id}) AND record::text LIKE ${'%' + id + '%'}`)[0]?.n || 0);
+  for (const rows of teamGroups.values()) {
+    if (rows.length < 2) continue;
+    const scored = [];
+    for (const row of rows) scored.push({ row, refs: await referenceCount(row.id), played: Number(row.record?.played || 0) });
+    // Keep the copy other records point at (ties: the one with the most games played).
+    scored.sort((a, b) => (b.refs - a.refs) || (b.played - a.played));
+    const [keep, ...extras] = scored;
+    const freshest = [...scored].sort((a, b) => b.played - a.played)[0];
+    let removedAny = false;
+    for (const extra of extras) {
+      if (extra.refs > 0 || (idsByNamespace.teams || []).includes(extra.row.id)) { duplicateTeamsKept += 1; continue; }
+      add('teams', extra.row.id);
+      removedAny = true;
+    }
+    // Carry the most up-to-date standings onto the kept copy so the table does not regress.
+    if (removedAny && freshest.row.id !== keep.row.id && (idsByNamespace.teams || []).includes(freshest.row.id)) {
+      const stats = {};
+      for (const field of ['played', 'won', 'drawn', 'lost', 'gf', 'ga', 'pts']) if (freshest.row.record?.[field] !== undefined) stats[field] = freshest.row.record[field];
+      standingsUpdates.push({ id: keep.row.id, record: { ...keep.row.record, ...stats } });
+    }
+  }
+  for (const update of standingsUpdates) {
+    await database`UPDATE pitchline_records SET record = ${JSON.stringify(update.record)}::jsonb, updated_at = ${Date.now()} WHERE namespace = 'teams' AND id = ${update.id}`;
+  }
+
   let removed = 0;
   for (const [namespace, ids] of Object.entries(idsByNamespace)) {
     if (!ids?.length) continue;
@@ -81,6 +119,6 @@ export async function cleanupProductionQa(request, response) {
 
   response.statusCode = 200;
   response.setHeader('Content-Type', 'application/json; charset=utf-8');
-  response.end(JSON.stringify({ ok: true, removed, fixturesRemoved: fixtureIds.size, namespaces: Object.fromEntries(Object.entries(idsByNamespace).map(([key, ids]) => [key, ids.length])) }));
+  response.end(JSON.stringify({ ok: true, removed, fixturesRemoved: fixtureIds.size, duplicateTeamsKept, namespaces: Object.fromEntries(Object.entries(idsByNamespace).map(([key, ids]) => [key, ids.length])) }));
   return true;
 }
