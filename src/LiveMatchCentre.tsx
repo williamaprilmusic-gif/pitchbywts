@@ -77,7 +77,8 @@ export default function LiveMatchCentre({ role, setNotice }: Props) {
     try {
       const [liveResponse, contextResponse] = await Promise.all([
         api.get(`/api/live-match/${fixtureId}`),
-        api.get(`/api/live-match/${fixtureId}/context`)
+        // Squad context is scoped to the user's own fixtures; without it the scoreboard still loads.
+        api.get(`/api/live-match/${fixtureId}/context`).catch(() => ({ data: {} }))
       ]);
       const context = contextResponse.data || {};
       const ruleResponse = await api.get(`/api/live-match/${fixtureId}/rules`).catch(() => ({ data: undefined }));
