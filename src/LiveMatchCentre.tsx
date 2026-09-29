@@ -58,6 +58,9 @@ export default function LiveMatchCentre({ role, setNotice }: Props) {
   const [now, setNow] = useState(Date.now());
   const connectionRef = useRef<ReturnType<typeof ws.connect> | null>(null);
   const canManage = ['LFA Admin', 'Manager', 'Club Manager'].includes(role);
+  // Managers can only control fixtures involving their own team (the scoped context request tells us).
+  const [scopeAllowed, setScopeAllowed] = useState(true);
+  const canControl = canManage && (role === 'LFA Admin' || scopeAllowed);
   const queueKey = selectedId ? `pitchline:live-pending:${selectedId}` : '';
 
   const loadFixtures = async () => {
@@ -78,9 +81,10 @@ export default function LiveMatchCentre({ role, setNotice }: Props) {
       const [liveResponse, contextResponse] = await Promise.all([
         api.get(`/api/live-match/${fixtureId}`),
         // Squad context is scoped to the user's own fixtures; without it the scoreboard still loads.
-        api.get(`/api/live-match/${fixtureId}/context`).catch(() => ({ data: {} }))
+        api.get(`/api/live-match/${fixtureId}/context`).catch(() => ({ data: { denied: true } }))
       ]);
       const context = contextResponse.data || {};
+      setScopeAllowed(!context.denied);
       const ruleResponse = await api.get(`/api/live-match/${fixtureId}/rules`).catch(() => ({ data: undefined }));
       setLive(liveResponse.data);
       setPlayers(context.players || []);
@@ -240,7 +244,7 @@ export default function LiveMatchCentre({ role, setNotice }: Props) {
   };
 
   const changeMatch = async (path: string, extra: Record<string, unknown> = {}) => {
-    if (!selected || !canManage) return;
+    if (!selected || !canControl) return;
     setBusy(true);
     try {
       const response = await api.post(path, { fixtureId: selected.id, ...extra });
@@ -257,7 +261,7 @@ export default function LiveMatchCentre({ role, setNotice }: Props) {
   };
 
   const undo = async () => {
-    if (!selected || !canManage || verified) return;
+    if (!selected || !canControl || verified) return;
     setBusy(true);
     try {
       const response = await api.post('/api/live-match/undo', { fixtureId: selected.id });
@@ -296,8 +300,9 @@ export default function LiveMatchCentre({ role, setNotice }: Props) {
       <div className='card live-main'><div className='live-selector'><label className='label'>MATCH</label><select value={selected.id} onChange={(event) => { setSelectedId(event.target.value); resetQuick(); }}>{fixtures.map((fixture) => <option key={fixture.id} value={fixture.id}>{fixture.home} vs {fixture.away} · {fixture.date} {fixture.time}</option>)}</select><button className='ghost small' onClick={() => void loadMatch(selected.id)}><RefreshCw size={14}/>Refresh</button></div>
         <div className='scoreboard'><div><Crest team={selected.home} size={40}/><span>{selected.home}</span><strong>{live?.homeScore ?? selected.homeScore ?? 0}</strong></div><div className='live-clock'><span className={live?.status === 'Live' ? 'pulse' : ''}>{clock}</span><small>{live?.status || 'Scheduled'}</small></div><div><strong>{live?.awayScore ?? selected.awayScore ?? 0}</strong><span>{selected.away}</span><Crest team={selected.away} size={40}/></div></div>
         <div className='match-meta'><span><Clock3 size={14}/>{selected.date} · {selected.time}</span><span><Users size={14}/>{live?.events?.length || 0} events</span>{live?.rules && <span><Flag size={14}/>{live.rules.ageGroup} rules</span>}{pendingCount > 0 && <span><WifiOff size={14}/>{pendingCount} pending sync</span>}{verified && <span><CheckCircle2 size={14}/>Verified</span>}</div>
-        {canManage && <div className='live-controls'><button className='primary' disabled={busy || live?.status === 'Live' || live?.status === 'Full time'} onClick={() => void changeMatch('/api/live-match/start')}><Play size={15}/>Start Match</button><button className='ghost' disabled={busy || live?.status !== 'Live'} onClick={() => void changeMatch('/api/live-match/pause', { status: 'Half time' })}><Pause size={15}/>Half Time</button><button className='ghost' disabled={busy || (live?.status !== 'Half time' && live?.status !== 'Paused')} onClick={() => void changeMatch('/api/live-match/resume')}><Play size={15}/>Second Half</button><button className='danger-btn' disabled={busy || !live || live.status === 'Full time'} onClick={() => void changeMatch('/api/live-match/finish')}><CircleStop size={15}/>Full Time</button></div>}
-        {canManage && live?.status === 'Live' && <div className='quick-event-panel'><div className='quick-event-title'><div><span className='label'>LIVE CONTROLS</span><h2>Tap an event</h2></div><span className='status blue'>{clock}</span></div><div className='quick-event-grid'>{events.filter((event) => allowed.includes(event.type)).map((event) => {const Icon = event.icon;return <button key={event.type} className={`quick-event ${event.accent}`} disabled={busy} onClick={() => chooseEvent(event.type)}><Icon size={24}/><span>{event.label}</span></button>;})}</div>
+        {canManage && !canControl && <p className='muted small'>You can follow this match, but only fixtures involving your own team can be controlled here.</p>}
+        {canControl && <div className='live-controls'><button className='primary' disabled={busy || live?.status === 'Live' || live?.status === 'Full time'} onClick={() => void changeMatch('/api/live-match/start')}><Play size={15}/>Start Match</button><button className='ghost' disabled={busy || live?.status !== 'Live'} onClick={() => void changeMatch('/api/live-match/pause', { status: 'Half time' })}><Pause size={15}/>Half Time</button><button className='ghost' disabled={busy || (live?.status !== 'Half time' && live?.status !== 'Paused')} onClick={() => void changeMatch('/api/live-match/resume')}><Play size={15}/>Second Half</button><button className='danger-btn' disabled={busy || !live || live.status === 'Full time'} onClick={() => void changeMatch('/api/live-match/finish')}><CircleStop size={15}/>Full Time</button></div>}
+        {canControl && live?.status === 'Live' && <div className='quick-event-panel'><div className='quick-event-title'><div><span className='label'>LIVE CONTROLS</span><h2>Tap an event</h2></div><span className='status blue'>{clock}</span></div><div className='quick-event-grid'>{events.filter((event) => allowed.includes(event.type)).map((event) => {const Icon = event.icon;return <button key={event.type} className={`quick-event ${event.accent}`} disabled={busy} onClick={() => chooseEvent(event.type)}><Icon size={24}/><span>{event.label}</span></button>;})}</div>
           {quickType && <div className='quick-step-card'><div className='quick-step-head'><b>{quickType}</b><button className='ghost small' onClick={resetQuick}>Cancel</button></div><span className='step-label'>1 · TEAM</span><div className='team-tap-row'><button className={`team-tap ${quickTeam === selected.home ? 'selected' : ''}`} onClick={() => { setQuickTeam(selected.home); setQuickPlayer(''); }}>{selected.home}</button><button className={`team-tap ${quickTeam === selected.away ? 'selected' : ''}`} onClick={() => { setQuickTeam(selected.away); setQuickPlayer(''); }}>{selected.away}</button></div>
             {['Goal','Yellow card','Red card','Injury','Shot','Shot on target','Foul'].includes(quickType) && <><span className='step-label'>2 · PLAYER / INCIDENT PLAYER</span>{quickPlayers.length ? <div className='player-tap-grid'>{quickPlayers.map((player) => <button type='button' key={player.memberRef} className={`player-tap ${quickPlayer === player.memberRef ? 'selected' : ''}`} onClick={() => setQuickPlayer(player.memberRef)}><b>{player.number}</b><span>{player.name}</span></button>)}</div> : <div className='empty-state'><h3>No registered players found for {quickTeam || 'this team'}</h3><p>Register the team players first, then return to the live match.</p></div>}</>}
             {['Injury','Shot','Shot on target','Foul'].includes(quickType) && <div className='admin-grid incident-detail-field'><div><span className='step-label'>{quickType === 'Injury' ? '3 · INJURY DETAIL' : '3 · DETAIL'}</span><input defaultValue='' placeholder={quickType === 'Injury' ? 'e.g. ankle, head, muscle, stretcher' : 'e.g. open play, header, counter'} /></div></div>}
