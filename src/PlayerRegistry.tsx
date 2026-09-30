@@ -65,8 +65,8 @@ export default function PlayerRegistry({ role, setNotice }: Props) {
       setNotice('Only club or league administrators can register players.');
       return;
     }
-    if (!form.name.trim() || !form.dob || !form.team.trim() || !form.memberRef.trim()) {
-      setNotice('Name, date of birth, team and member reference are required.');
+    if (!form.name.trim() || !form.dob || !form.team.trim()) {
+      setNotice('Name, date of birth and team are required.');
       return;
     }
     try {
@@ -130,7 +130,7 @@ export default function PlayerRegistry({ role, setNotice }: Props) {
           <select value={form.requestedAgeGroup} onChange={e => setForm({ ...form, requestedAgeGroup: e.target.value })}>{ages.map(age => <option key={age}>{age}</option>)}</select>
           <input value={form.team} onChange={e => setForm({ ...form, team: e.target.value })} placeholder='Registered team' />
           <div className='admin-grid'><select value={form.position} onChange={e => setForm({ ...form, position: e.target.value })}>{['GK','CB','LB','RB','DM','CM','CAM','LW','RW','ST'].map(position => <option key={position}>{position}</option>)}</select><input type='number' min='0' max='99' value={form.number} onChange={e => setForm({ ...form, number: e.target.value })} placeholder='Squad no.' /></div>
-          <input value={form.memberRef} onChange={e => setForm({ ...form, memberRef: e.target.value })} placeholder='Existing member reference' />
+          <input value={form.memberRef} onChange={e => setForm({ ...form, memberRef: e.target.value })} placeholder='Member reference (optional, auto-generated)' />
           <button className='primary' onClick={submit}><UserPlus size={15} />Register player</button>
         </div>
         <div className='card'>
