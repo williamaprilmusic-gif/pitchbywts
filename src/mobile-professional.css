@@ -239,3 +239,18 @@ html,body{overflow-x:hidden}
 :where(.content) :where(textarea){padding:10px 12px;min-height:84px}
 :where(.content) :where(input,select,textarea):focus{outline:none;border-color:#6fbf8b;box-shadow:0 0 0 3px rgba(111,191,139,.18)}
 .filters>*{flex:0 0 auto;white-space:nowrap}
+/* Team names in fixture cards: truncate with an ellipsis instead of clipping */
+.fixture-teams .team-name{font-style:normal;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* New fixture form (Fixtures & Scheduling): heading full width, compact rows */
+.add-fixture-slot .admin-panel{min-height:0!important;height:auto!important;row-gap:10px!important;align-content:start;padding-top:18px!important;padding-bottom:18px!important}
+.add-fixture-slot .admin-panel>.label,.add-fixture-slot .admin-panel>h2{grid-column:1/-1;margin:0}
+.add-fixture-slot .admin-panel>select,.add-fixture-slot .admin-panel>input,.add-fixture-slot .admin-panel>button{align-self:center}
+/* Phones: long page names hyphenate instead of being cut mid-word */
+@media (max-width:760px){
+  .topbar .crumb b{font-size:12.5px;hyphens:auto;-webkit-hyphens:auto;overflow-wrap:break-word}
+}
+/* Phones: the page heading directly below already names the page, so drop the
+   cramped top-bar title rather than showing it cut off. */
+@media (max-width:760px){
+  .topbar .crumb{visibility:hidden}
+}
