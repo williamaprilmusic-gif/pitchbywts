@@ -17,7 +17,7 @@ jobs:
         run: |
           set -euo pipefail
           curl --fail --silent --show-error --max-time 20 https://pitchline-william-april.vercel.app/ >/tmp/page.html
-          grep -q 'Pitchline' /tmp/page.html || true
+          grep -q 'Pitchline' /tmp/page.html
 
       - name: Health is configured
         run: |
