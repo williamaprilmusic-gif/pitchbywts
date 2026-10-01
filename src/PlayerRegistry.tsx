@@ -52,7 +52,7 @@ export default function PlayerRegistry({ role, setNotice }: Props) {
     conn.ready.then(() => {
       const connectionId = conn.connectionId;
       if (!connectionId) return;
-      void api.post('/api/subscriptions', { entity_type: 'player-registry', entity_id: 'league', connection_id: connectionId });
+      void api.post('/api/subscriptions', { entity_type: 'player-registry', entity_id: 'league', connection_id: connectionId }).catch(() => undefined);
     }).catch(() => undefined);
     return () => conn.disconnect();
   }, []);

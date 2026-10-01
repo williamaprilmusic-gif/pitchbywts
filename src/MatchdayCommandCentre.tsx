@@ -19,7 +19,7 @@ export default function MatchdayCommandCentre({role,setNotice}:Props){
  const [ready,setReady]=useState<Readiness>({fixtureId:'',venueReady:false,officialsReady:false,teamSheetReady:false,resultReady:false,notes:'',updatedAt:0});
  const canManage=role==='LFA Admin';
  const load=async()=>{try{const r=await api.get('/api/matchday-command');if(r.data)setData(r.data)}catch{setNotice('Could not load the matchday command centre.')}};
- useEffect(()=>{void load();const c=ws.connect();c.onMessage(m=>{if(m?.type==='entity.update'&&m.payload?.entity_type==='matchday-command'&&m.payload?.data)setData(m.payload.data)});c.ready.then(()=>{if(c.connectionId)void api.post('/api/subscriptions',{entity_type:'matchday-command',entity_id:'league',connection_id:c.connectionId})}).catch(()=>undefined);return()=>c.disconnect()},[]);
+ useEffect(()=>{void load();const c=ws.connect();c.onMessage(m=>{if(m?.type==='entity.update'&&m.payload?.entity_type==='matchday-command'&&m.payload?.data)setData(m.payload.data)});c.ready.then(()=>{if(c.connectionId)void api.post('/api/subscriptions',{entity_type:'matchday-command',entity_id:'league',connection_id:c.connectionId}).catch(() => undefined)}).catch(()=>undefined);return()=>c.disconnect()},[]);
  const fixtures=useMemo(()=>data.fixtures.filter(f=>f.status!=='completed').sort((a,b)=>`${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`)),[data.fixtures]);
  const selected=fixtures.find(f=>f.id===selectedId)||fixtures[0];
  const appointments=data.appointments.filter(a=>a.fixtureId===selected?.id);

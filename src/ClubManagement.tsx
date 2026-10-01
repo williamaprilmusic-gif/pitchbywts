@@ -46,7 +46,7 @@ export default function ClubManagement({ role, setNotice }:Props){
     void load();
     const conn=ws.connect();connRef.current=conn;
     conn.onMessage(msg=>{if(msg?.type!=='entity.update')return;const type=msg.payload?.entity_type;const data=msg.payload?.data;if(type==='club-profile'&&data)setProfile(data);if(type==='club-staff'&&Array.isArray(data))setStaff(data);if(type==='teams'&&Array.isArray(data))setTeams(data);if(type==='players'&&Array.isArray(data))setPlayers(data);if(type==='player-transfers'&&Array.isArray(data))setTransfers(data);});
-    conn.ready.then(()=>{const id=conn.connectionId;if(!id)return;['club-profile','club-staff','teams','players','player-transfers'].forEach(entity=>void api.post('/api/subscriptions',{entity_type:entity,entity_id:'club',connection_id:id}));}).catch(()=>undefined);
+    conn.ready.then(()=>{const id=conn.connectionId;if(!id)return;['club-profile','club-staff','teams','players','player-transfers'].forEach(entity=>void api.post('/api/subscriptions',{entity_type:entity,entity_id:'club',connection_id:id}).catch(() => undefined));}).catch(()=>undefined);
     return()=>{conn.disconnect()};
   },[]);
 
