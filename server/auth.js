@@ -63,7 +63,7 @@ function cookies(req) {
     if (index < 0) continue;
     const key = item.slice(0, index).trim();
     const value = item.slice(index + 1).trim();
-    if (key) result[key] = decodeURIComponent(value);
+    if (key) { try { result[key] = decodeURIComponent(value); } catch { result[key] = value; } }
   }
   return result;
 }
