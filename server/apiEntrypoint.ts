@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { clearSessionCookie, getSessionUser, passwordHash, setSessionCookie, verifyPassword, type AuthUser } from './auth';
 import { db } from './appdeployCompat';
-import { handler } from '../backend/index.ts';
+import { handler, canOperateFixture } from '../backend/index.ts';
 
 type VercelRequest = IncomingMessage & { method?: string; body?: unknown; query?: Record<string, string | string[] | undefined> };
 type VercelResponse = ServerResponse;
@@ -42,7 +42,7 @@ async function isLfaAdmin(userId?: string) {
 async function isMatchOperator(userId?: string) {
   if (!userId) return false;
   const result = await db.list<RecordShape>('user_roles', { limit: 5000 });
-  return result.items.some(item => String(item.userId) === userId && ['LFA Admin', 'Manager', 'Club Manager'].includes(String(item.role)));
+  return result.items.some(item => String(item.userId) === userId && ['LFA Admin', 'Manager'].includes(String(item.role)));
 }
 
 async function getUserRole(userId: string) {
@@ -132,6 +132,15 @@ async function syncFixtureFromLiveMatch(fixtureId: string) {
   await db.update('fixtures', [{ id: fixtureId, record: next }]);
 }
 
+// Best-effort in-memory throttle for credential endpoints (per warm serverless instance).
+const AUTH_WINDOW_MS = 15 * 60 * 1000;
+const AUTH_MAX_FAILURES = 10;
+const authFailures = new Map<string, { count: number; resetAt: number }>();
+function authKeys(request: VercelRequest, email: string) { return [`ip:${requestIp(request) || 'unknown'}`, `email:${email}`]; }
+function authBlocked(keys: string[]) { const nowMs = Date.now(); return keys.some(key => { const entry = authFailures.get(key); if (!entry) return false; if (entry.resetAt <= nowMs) { authFailures.delete(key); return false; } return entry.count >= AUTH_MAX_FAILURES; }); }
+function authFailed(keys: string[]) { const nowMs = Date.now(); if (authFailures.size > 5000) authFailures.clear(); for (const key of keys) { const entry = authFailures.get(key); if (!entry || entry.resetAt <= nowMs) authFailures.set(key, { count: 1, resetAt: nowMs + AUTH_WINDOW_MS }); else entry.count += 1; } }
+function authSucceeded(keys: string[]) { for (const key of keys) authFailures.delete(key); }
+
 async function authEndpoint(request: VercelRequest, response: VercelResponse, pathname: string, reqId: string) {
   if (pathname === '/api/auth/sign-out' && request.method === 'POST') { clearSessionCookie(response); send(response, 200, { ok: true }, reqId); return true; }
   if (pathname === '/api/auth/me' && request.method === 'GET') { const user = getSessionUser(request); if (!user) send(response, 401, { error: 'Unauthorized', code: 'not_authenticated' }, reqId); else send(response, 200, { user, role: await getUserRole(user.userId) }, reqId); return true; }
@@ -143,13 +152,17 @@ async function authEndpoint(request: VercelRequest, response: VercelResponse, pa
     const email = String(input.email || '').trim().toLowerCase();
     const password = String(input.password || '');
     if (!email || !password) { send(response, 400, { error: 'Email and password are required.', code: 'invalid_request' }, reqId); return true; }
+    const throttleKeys = authKeys(request, email);
+    if (authBlocked(throttleKeys)) { response.setHeader('Retry-After', String(Math.ceil(AUTH_WINDOW_MS / 1000))); send(response, 429, { error: 'Too many attempts. Please wait a few minutes and try again.', code: 'rate_limited' }, reqId); return true; }
+    if (pathname === '/api/auth/sign-up') authFailed(throttleKeys);
     if (pathname === '/api/auth/sign-up') {
       const name = String(input.name || email).trim().slice(0, 120);
       if (!email.includes('@') || !name || password.length < 10) { send(response, 400, { error: 'Valid email, name and a password of at least 10 characters are required.', code: 'invalid_request' }, reqId); return true; }
       const users = await db.list<RecordShape>('auth_users', { limit: 5000 });
       if (users.items.some(item => String(item.email || '').toLowerCase() === email)) { send(response, 409, { error: 'An account already exists for that email.', code: 'account_exists' }, reqId); return true; }
       const [id] = await db.add('auth_users', [{ email, name, passwordHash: passwordHash(password), createdAt: Date.now() }]);
-      await db.add('user_roles', [{ userId: id, role: 'Supporter', updatedAt: Date.now(), source: 'Self registration' }]);
+      const existingRoles = await db.list<RecordShape>('user_roles', { limit: 5000 });
+      if (!existingRoles.items.some(item => String(item.userId) === id)) await db.add('user_roles', [{ userId: id, role: 'Supporter', updatedAt: Date.now(), source: 'Self registration' }]);
       const user: AuthUser = { userId: id, email, name }; setSessionCookie(response, user); send(response, 201, { user, role: 'Supporter', expiresIn: 60 * 60 * 24 * 7 }, reqId); return true;
     }
     const configuredEmail = String(process.env.PITCHLINE_ADMIN_EMAIL || '').trim().toLowerCase();
@@ -182,12 +195,13 @@ async function authEndpoint(request: VercelRequest, response: VercelResponse, pa
     } else {
       const users = await db.list<RecordShape>('auth_users', { limit: 5000 });
       const found = users.items.find(item => String(item.email || '').toLowerCase() === email);
-      if (!found || !verifyPassword(password, String(found.passwordHash || ''))) { send(response, 401, { error: 'Invalid email or password.', code: 'invalid_credentials' }, reqId); return true; }
+      if (!found || !verifyPassword(password, String(found.passwordHash || ''))) { authFailed(throttleKeys); send(response, 401, { error: 'Invalid email or password.', code: 'invalid_credentials' }, reqId); return true; }
       user = { userId: String(found.id), email, name: String(found.name || email) };
     }
+    authSucceeded(throttleKeys);
     const role = await getUserRole(user.userId);
     setSessionCookie(response, user); send(response, 200, { user, role, expiresIn: 60 * 60 * 24 * 7 }, reqId); return true;
-  } catch (error) { console.error('Pitchline auth error', error); send(response, 500, { error: error instanceof Error ? error.message : 'Authentication service failed.' }, reqId); return true; }
+  } catch (error) { console.error('Pitchline auth error', error); send(response, 500, { error: 'Authentication service failed.', code: 'auth_failed', requestId: reqId }, reqId); return true; }
 }
 
 export default async function api(request: VercelRequest, response: VercelResponse) {
@@ -234,7 +248,7 @@ export default async function api(request: VercelRequest, response: VercelRespon
   // route performs the same persistence, but a non-critical realtime notification or
   // router exception must never turn a successfully persisted kick-off into HTTP 500.
   if (request.method === 'POST' && pathname === '/api/live-match/start') {
-    if (!actor || !(await isMatchOperator(actor.userId))) {
+    if (!actor || !(await isMatchOperator(actor.userId)) || !(await canOperateFixture(actor.userId, String(requestBody.fixtureId || '').trim()))) {
       send(response, actor ? 403 : 401, { error: actor ? 'Match operator role required' : 'Unauthorized', code: actor ? 'forbidden' : 'not_authenticated' }, reqId);
       return;
     }
@@ -304,7 +318,7 @@ export default async function api(request: VercelRequest, response: VercelRespon
       return;
     } catch (error) {
       console.error('Pitchline start-live error', { requestId: reqId, error });
-      if (!response.writableEnded) send(response, 500, { error: error instanceof Error ? error.message : 'Could not start live match.', code: 'live_match_start_failed', requestId: reqId }, reqId);
+      if (!response.writableEnded) send(response, 500, { error: 'Could not start live match.', code: 'live_match_start_failed', requestId: reqId }, reqId);
       return;
     }
   }
@@ -313,7 +327,7 @@ export default async function api(request: VercelRequest, response: VercelRespon
   routeRequest.body = request.body;
   routeRequest.url = pathname;
   try { await handler(routeRequest, response); }
-  catch (error) { console.error('Pitchline backend error', { requestId: reqId, error }); if (!response.writableEnded) send(response, 500, { error: error instanceof Error ? error.message : 'Backend request failed.', requestId: reqId }, reqId); }
+  catch (error) { console.error('Pitchline backend error', { requestId: reqId, error }); if (!response.writableEnded) send(response, 500, { error: 'Backend request failed.', requestId: reqId }, reqId); }
   if (response.statusCode < 400 && request.method === 'POST' && ['/api/live-match/start','/api/live-match/pause','/api/live-match/resume','/api/live-match/finish'].includes(pathname)) {
     const fixtureId = String(requestBody.fixtureId || '').trim();
     if (fixtureId) await syncFixtureFromLiveMatch(fixtureId);

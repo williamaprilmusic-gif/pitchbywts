@@ -214,7 +214,7 @@ export function router(routes: Record<string, RouterMiddleware[]>): (req: Incomi
     }
     const match = path.match(route.matcher.regex);
     const params: Record<string, string> = {};
-    route.matcher.names.forEach((name, index) => { params[name] = decodeURIComponent(match?.[index + 1] || ''); });
+    route.matcher.names.forEach((name, index) => { const rawParam = match?.[index + 1] || ''; try { params[name] = decodeURIComponent(rawParam); } catch { params[name] = rawParam; } });
     const body = await readBody(req);
     const ctx: RequestContext = { req, res, method, path, body, params, query: Object.fromEntries(url.searchParams.entries()) };
     try {
@@ -229,7 +229,7 @@ export function router(routes: Record<string, RouterMiddleware[]>): (req: Incomi
     } catch (cause) {
       console.error('Pitchline API error', { method, path, cause });
       res.statusCode = 500;
-      res.end(JSON.stringify({ error: 'Internal server error', message: cause instanceof Error ? cause.message : 'Internal server error' }));
+      res.end(JSON.stringify({ error: 'Internal server error', message: 'Internal server error' }));
     }
   };
 }

@@ -4,8 +4,8 @@ import path from 'node:path';
 const backend=path.resolve('backend/index.ts');
 let s=fs.readFileSync(backend,'utf8');
 const catalogMarker='PITCHLINE_COMPETITION_CATALOG_FULL_SCAN_APPLIED';
-const listTableOld="async function listTable<T=Record<string,unknown>>(table:string,limit=100){return (await db.list<T>(table,{limit})).items;}";
-const listTableNew="async function listTable<T=Record<string,unknown>>(table:string,limit=100){const effectiveLimit=table==='competition_catalog'?5000:limit;return (await db.list<T>(table,{limit:effectiveLimit})).items;}";
+const listTableOld="async function listTable<T=Record<string,unknown>>(table:string,limit=5000){return (await db.list<T>(table,{limit})).items;}";
+const listTableNew="async function listTable<T=Record<string,unknown>>(table:string,limit=5000){const effectiveLimit=table==='competition_catalog'?5000:limit;return (await db.list<T>(table,{limit:effectiveLimit})).items;}";
 if(!s.includes(catalogMarker)){
   if(!s.includes(listTableOld)) throw new Error('competition catalog pagination target not found');
   s=s.replace(listTableOld,`// ${catalogMarker}\n${listTableNew}`);
