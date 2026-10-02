@@ -277,3 +277,8 @@ html,body{overflow-x:hidden}
   .score-field{flex:1 1 40%}
   .score-field input{width:100%}
 }
+@media (max-width:760px){
+  .score-editor{flex-wrap:wrap}
+  .score-editor>strong{flex:1 1 100%}
+  .score-editor textarea{flex:1 1 100%;min-height:64px}
+}
