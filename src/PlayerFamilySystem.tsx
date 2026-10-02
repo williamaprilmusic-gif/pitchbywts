@@ -46,7 +46,7 @@ export default function PlayerFamilySystem({ setNotice }: { setNotice: (v: strin
       if (msg?.type === 'entity.update' && msg.payload?.entity_type === 'player-family-system') void load();
     });
     void conn.ready.then(() => {
-      if (conn.connectionId) return api.post('/api/subscriptions', { entity_type: 'player-family-system', entity_id: 'league', connection_id: conn.connectionId });
+      if (conn.connectionId) return api.post('/api/subscriptions', { entity_type: 'player-family-system', entity_id: 'league', connection_id: conn.connectionId }).catch(() => undefined);
       return undefined;
     }).catch(() => undefined);
     return () => conn.disconnect();

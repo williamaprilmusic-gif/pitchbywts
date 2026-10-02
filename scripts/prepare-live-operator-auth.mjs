@@ -48,7 +48,7 @@ app = app.replace(
   "role==='Manager'?{eyebrow:'MANAGER WORKSPACE'",
   "(role==='Manager'||role==='Club Manager')?{eyebrow:'MANAGER WORKSPACE'"
 );
-const clubAnchor = "{tab==='club'&&<ClubAdmin registrations={registrations} payments={payments} approve={approve} announcement={announcement} setAnnouncement={setAnnouncement} sendAnnouncement={sendAnnouncement} navigate={navigate}/>}";
+const clubAnchor = "{tab==='club'&&<ClubAdmin registrations={registrations} payments={payments} approve={approve} busy={busy} announcement={announcement} setAnnouncement={setAnnouncement} sendAnnouncement={sendAnnouncement} navigate={navigate}/>}";
 if (!app.includes("{tab==='club-management'&&<ClubManagement")) {
   if (!app.includes(clubAnchor)) throw new Error('Club admin render anchor not found.');
   app = app.replace(clubAnchor, `${clubAnchor} {tab==='club-management'&&<ClubManagement role={effectiveRole} setNotice={setNotice}/>} `);

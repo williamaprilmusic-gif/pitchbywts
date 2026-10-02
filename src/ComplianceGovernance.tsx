@@ -44,7 +44,7 @@ export default function ComplianceGovernance({ setNotice }: { setNotice: (value:
     };
     conn.onMessage(handler);
     void conn.ready.then(() => {
-      if (conn.connectionId) return api.post('/api/subscriptions', { entity_type: 'compliance-governance', entity_id: 'league', connection_id: conn.connectionId });
+      if (conn.connectionId) return api.post('/api/subscriptions', { entity_type: 'compliance-governance', entity_id: 'league', connection_id: conn.connectionId }).catch(() => undefined);
       return undefined;
     });
     return () => {
