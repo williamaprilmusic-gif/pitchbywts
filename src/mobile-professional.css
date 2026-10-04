@@ -282,3 +282,13 @@ html,body{overflow-x:hidden}
   .score-editor>strong{flex:1 1 100%}
   .score-editor textarea{flex:1 1 100%;min-height:64px}
 }
+
+/* Audit fixes: persistent data banner and inline form errors */
+.data-banner{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 16px;padding:12px 14px;border:1px solid var(--line,#d9e0ea);border-radius:12px;background:var(--card,#fff);font-size:14px}
+.data-banner[role='alert']{border-color:#d97706;background:#fff7ed;color:#7c2d12}
+.data-banner button{flex:0 0 auto;min-height:40px}
+.form-error{display:block;margin:4px 0;color:#b91c1c;font-size:13px}
+@media (max-width:760px){
+  .data-banner{flex-wrap:wrap}
+  .data-banner button{width:100%}
+}
