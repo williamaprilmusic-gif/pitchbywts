@@ -1,6 +1,5 @@
 node_modules/
 dist/
-package-lock.json
 
 # Environment and local tooling (never commit secrets)
 .env
