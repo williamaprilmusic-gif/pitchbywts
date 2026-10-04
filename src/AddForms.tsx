@@ -6,33 +6,70 @@ type Team = { id: string; name: string; ageGroup: string };
 const AGE_GROUPS = ['U8', 'U10', 'U12', 'U14', 'U16', 'U18', 'Senior'];
 const errorText = (error: unknown, fallback: string) => error instanceof Error && error.message ? error.message : fallback;
 
-/** Inline "Add team" form. LFA Admin adds any team; a Club adds teams under its own club. */
+/** Inline "Add team" form. Enter the club name once and tick the divisions; one team is created per division ("<name> <division>"). LFA Admin adds any team; a Club adds teams under its own club. */
 export function AddTeamForm({ role, club, defaultAge, onClose, onAdded, setNotice }: { role: string; club?: string; defaultAge: string; onClose: () => void; onAdded: () => Promise<void>; setNotice: (v: string) => void }) {
   const [name, setName] = useState('');
-  const [ageGroup, setAgeGroup] = useState(defaultAge || 'U14');
+  const [divisions, setDivisions] = useState<string[]>(() => [AGE_GROUPS.includes(defaultAge) ? defaultAge : 'U14']);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
   // A club adds teams under its own name: "<club> <age group>", matching how the league links teams to clubs.
   const clubBase = role === 'LFA Admin' ? '' : String(club || '').replace(/\s+FC$/i, '').trim();
-  const teamName = clubBase ? `${clubBase} ${ageGroup}` : name.trim();
+  // Strip a trailing division the admin may have typed, so "Rovers U12" + U12 does not become "Rovers U12 U12".
+  const baseName = clubBase || name.trim().replace(new RegExp(`\s+(?:${AGE_GROUPS.join('|')})$`, 'i'), '').trim();
+  const nameFor = (division: string) => `${baseName} ${division}`;
+  const ordered = AGE_GROUPS.filter(a => divisions.includes(a));
+  const allSelected = ordered.length === AGE_GROUPS.length;
+  const toggle = (division: string) => setDivisions(list => list.includes(division) ? list.filter(d => d !== division) : [...list, division]);
   const save = async () => {
-    if (!teamName) { setNotice('Enter the team name, for example "Liverpool Portland U16".'); return; }
+    if (!baseName) { setError('Enter the team name, for example "Liverpool Portland".'); return; }
+    if (!ordered.length) { setError('Select at least one division.'); return; }
+    setError('');
     setBusy(true);
+    const created: string[] = [];
+    const skipped: string[] = [];
+    const failed: { division: string; reason: string }[] = [];
+    for (const division of ordered) {
+      try {
+        await api.post(role === 'LFA Admin' ? '/api/teams' : '/api/club-teams', { name: nameFor(division), ageGroup: division });
+        created.push(division);
+      } catch (e) {
+        const reason = errorText(e, 'Could not add the team.');
+        if (/already exists/i.test(reason)) skipped.push(division); else failed.push({ division, reason });
+      }
+    }
     try {
-      await api.post(role === 'LFA Admin' ? '/api/teams' : '/api/club-teams', { name: teamName, ageGroup });
-      await onAdded();
-      setNotice(`${teamName} added.`);
-      setName('');
-      onClose();
-    } catch (error) { setNotice(errorText(error, 'Could not add the team.')); }
-    finally { setBusy(false); }
+      if (created.length) await onAdded();
+      if (!failed.length && !skipped.length) {
+        setNotice(created.length === 1 ? `${nameFor(created[0])} added.` : `${created.length} teams added for ${baseName}: ${created.join(', ')}.`);
+        setName('');
+        onClose();
+      } else {
+        // Keep the form open, leaving only the divisions that still need attention ticked.
+        setDivisions(ordered.filter(d => !created.includes(d)));
+        const parts = [];
+        if (created.length) parts.push(`Created: ${created.join(', ')}.`);
+        if (skipped.length) parts.push(`Skipped, team already exists: ${skipped.map(nameFor).join(', ')}.`);
+        if (failed.length) parts.push(`Failed: ${failed.map(f => `${f.division} (${f.reason})`).join('; ')}.`);
+        setError(parts.join(' '));
+        setNotice(created.length ? `${created.length} of ${ordered.length} teams added. ${parts.slice(1).join(' ')}` : parts.join(' '));
+      }
+    } finally { setBusy(false); }
   };
   return <div className='card admin-panel add-inline'>
     <div className='add-inline-head'><div><span className='label'>NEW TEAM</span><h2>Add a team</h2></div><button className='icon-btn' onClick={onClose} aria-label='Close'><X size={16} /></button></div>
     <div className='form-grid'>
-      {clubBase ? <input value={teamName} readOnly aria-label='Team name' /> : <input value={name} onChange={e => setName(e.target.value)} placeholder='Team name (club + age group)' aria-label='Team name' />}
-      <select value={ageGroup} onChange={e => setAgeGroup(e.target.value)} aria-label='Age group'>{AGE_GROUPS.map(a => <option key={a}>{a}</option>)}</select>
+      {clubBase ? <input value={clubBase} readOnly aria-label='Team name' /> : <input value={name} onChange={e => { setName(e.target.value); setError(''); }} placeholder='Team name, e.g. Liverpool Portland' aria-label='Team name' />}
     </div>
-    <button className='primary' disabled={busy} onClick={() => void save()}><Plus size={15} />{busy ? 'Adding…' : 'Add team'}</button>
+    <fieldset className='division-picker'>
+      <legend>Divisions</legend>
+      <div className='division-options'>
+        <label className='division-option division-all'><input type='checkbox' checked={allSelected} onChange={() => setDivisions(allSelected ? [] : [...AGE_GROUPS])} /><span>Select all</span></label>
+        {AGE_GROUPS.map(a => <label key={a} className='division-option'><input type='checkbox' checked={divisions.includes(a)} onChange={() => { toggle(a); setError(''); }} /><span>{a}</span></label>)}
+      </div>
+    </fieldset>
+    {baseName && ordered.length > 0 && <p className='division-preview'>Will create: {ordered.map(nameFor).join(', ')}</p>}
+    {error && <p className='form-error' role='alert'>{error}</p>}
+    <button className='primary' disabled={busy} onClick={() => void save()}><Plus size={15} />{busy ? 'Adding…' : ordered.length > 1 ? `Add ${ordered.length} teams` : 'Add team'}</button>
   </div>;
 }
 
