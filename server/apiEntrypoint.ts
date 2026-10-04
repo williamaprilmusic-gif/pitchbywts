@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { clearSessionCookie, getSessionUser, passwordHash, setSessionCookie, verifyPassword, type AuthUser } from './auth';
 import { db } from './appdeployCompat';
+import { sessionRevoked as sharedSessionRevoked } from './sessionRevocation.js';
 import { handler, canOperateFixture } from '../backend/index.ts';
 
 type VercelRequest = IncomingMessage & { method?: string; body?: unknown; query?: Record<string, string | string[] | undefined> };
@@ -141,14 +142,8 @@ function authBlocked(keys: string[]) { const nowMs = Date.now(); return keys.som
 function authFailed(keys: string[]) { const nowMs = Date.now(); if (authFailures.size > 5000) authFailures.clear(); for (const key of keys) { const entry = authFailures.get(key); if (!entry || entry.resetAt <= nowMs) authFailures.set(key, { count: 1, resetAt: nowMs + AUTH_WINDOW_MS }); else entry.count += 1; } }
 function authSucceeded(keys: string[]) { for (const key of keys) authFailures.delete(key); }
 
-// A session is revoked when its owner's credentials were reset after it was issued, or the account no longer exists.
-async function sessionRevoked(user: AuthUser) {
-  try {
-    const row = (await db.get<RecordShape>('auth_users', [user.userId]))[0];
-    if (!row) return true;
-    return Number(user.iat || 0) < Number(row.sessionsValidAfter || 0);
-  } catch (error) { console.error('Pitchline session revocation check failed', error); return false; }
-}
+// Revocation rule is shared with the standalone Vercel handlers (server/sessionRevocation.js).
+const sessionRevoked = (user: AuthUser) => sharedSessionRevoked(user, async (id: string) => (await db.get<RecordShape>('auth_users', [id]))[0]);
 
 async function authEndpoint(request: VercelRequest, response: VercelResponse, pathname: string, reqId: string) {
   if (pathname === '/api/auth/sign-out' && request.method === 'POST') {

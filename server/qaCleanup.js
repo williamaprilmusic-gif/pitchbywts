@@ -1,5 +1,6 @@
 import { neon } from '@neondatabase/serverless';
 import { getSessionUser } from './auth.js';
+import { sessionRevoked } from './sessionRevocation.js';
 
 const sql = () => {
   const url = process.env.DATABASE_URL;
@@ -25,13 +26,14 @@ const isDemoOfficial = r => demoOfficials.get(String(r?.name || '')) === String(
 
 export async function cleanupProductionQa(request, response) {
   const actor = getSessionUser(request);
-  if (!actor) {
+  const database = sql();
+  const revoked = actor && await sessionRevoked(actor, async id => (await database`SELECT record FROM pitchline_records WHERE namespace = 'auth_users' AND id = ${id}`)[0]?.record);
+  if (!actor || revoked) {
     response.statusCode = 401;
     response.end(JSON.stringify({ error: 'Unauthorized', code: 'not_authenticated' }));
     return true;
   }
 
-  const database = sql();
   const roles = await database`SELECT record FROM pitchline_records WHERE namespace = 'user_roles'`;
   const admin = roles.some(row => String(row.record?.userId || '') === actor.userId && String(row.record?.role || '') === 'LFA Admin');
   if (!admin) {
