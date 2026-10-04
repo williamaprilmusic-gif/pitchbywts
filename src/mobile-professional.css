@@ -292,3 +292,9 @@ html,body{overflow-x:hidden}
   .data-banner{flex-wrap:wrap}
   .data-banner button{width:100%}
 }
+
+/* Club Management: registration approvals */
+.club-management .admin-row{flex-wrap:wrap}
+@media (max-width:760px){
+  .club-management .admin-row button.ghost.small{min-height:44px}
+}
