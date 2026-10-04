@@ -292,3 +292,13 @@ html,body{overflow-x:hidden}
   .data-banner{flex-wrap:wrap}
   .data-banner button{width:100%}
 }
+
+/* Add team form: multi-division picker */
+.division-picker{border:1px solid var(--line,#e2e8f0);border-radius:10px;padding:10px 12px;margin:10px 0;min-width:0}
+.division-picker legend{font-size:13px;font-weight:600;padding:0 6px}
+.division-options{display:flex;flex-wrap:wrap;gap:8px}
+.division-option{display:inline-flex;align-items:center;gap:8px;min-height:40px;min-width:40px;padding:0 12px;border:1px solid var(--line,#e2e8f0);border-radius:8px;cursor:pointer;font-size:14px;box-sizing:border-box}
+.division-option input{width:18px;height:18px;margin:0;flex:0 0 auto}
+.division-option:has(input:checked){border-color:#2563eb;background:#eff6ff}
+.division-preview{margin:4px 0 10px;font-size:13px;color:#475569;overflow-wrap:anywhere}
+.add-inline .form-error{overflow-wrap:anywhere}
