@@ -141,8 +141,27 @@ function authBlocked(keys: string[]) { const nowMs = Date.now(); return keys.som
 function authFailed(keys: string[]) { const nowMs = Date.now(); if (authFailures.size > 5000) authFailures.clear(); for (const key of keys) { const entry = authFailures.get(key); if (!entry || entry.resetAt <= nowMs) authFailures.set(key, { count: 1, resetAt: nowMs + AUTH_WINDOW_MS }); else entry.count += 1; } }
 function authSucceeded(keys: string[]) { for (const key of keys) authFailures.delete(key); }
 
+// A session is revoked when its owner's credentials were reset after it was issued, or the account no longer exists.
+async function sessionRevoked(user: AuthUser) {
+  try {
+    const row = (await db.get<RecordShape>('auth_users', [user.userId]))[0];
+    if (!row) return true;
+    return Number(user.iat || 0) < Number(row.sessionsValidAfter || 0);
+  } catch (error) { console.error('Pitchline session revocation check failed', error); return false; }
+}
+
 async function authEndpoint(request: VercelRequest, response: VercelResponse, pathname: string, reqId: string) {
-  if (pathname === '/api/auth/sign-out' && request.method === 'POST') { clearSessionCookie(response); send(response, 200, { ok: true }, reqId); return true; }
+  if (pathname === '/api/auth/sign-out' && request.method === 'POST') {
+    const leaving = getSessionUser(request);
+    if (leaving) {
+      // Drop this user's realtime subscriptions so signed-out sessions do not accumulate rows.
+      try {
+        const subs = await db.list<RecordShape>('entity_subscriptions', { limit: 5000 });
+        const mine = subs.items.filter(item => String(item.userId || '') === leaving.userId).map(item => String(item.id));
+        if (mine.length) await db.delete('entity_subscriptions', mine);
+      } catch (error) { console.error('Pitchline subscription cleanup failed', error); }
+    }
+    clearSessionCookie(response); send(response, 200, { ok: true }, reqId); return true; }
   if (pathname === '/api/auth/me' && request.method === 'GET') { const user = getSessionUser(request); if (!user) send(response, 401, { error: 'Unauthorized', code: 'not_authenticated' }, reqId); else send(response, 200, { user, role: await getUserRole(user.userId) }, reqId); return true; }
   if (pathname === '/api/my-role' && request.method === 'GET') { const user = getSessionUser(request); if (!user) send(response, 401, { error: 'Unauthorized', code: 'not_authenticated' }, reqId); else send(response, 200, { role: await getUserRole(user.userId), club: await getUserClub(user.userId), user }, reqId); return true; }
   if (pathname !== '/api/auth/sign-in' && pathname !== '/api/auth/sign-up') return false;
@@ -158,8 +177,9 @@ async function authEndpoint(request: VercelRequest, response: VercelResponse, pa
     if (pathname === '/api/auth/sign-up') {
       const name = String(input.name || email).trim().slice(0, 120);
       if (!email.includes('@') || !name || password.length < 10) { send(response, 400, { error: 'Valid email, name and a password of at least 10 characters are required.', code: 'invalid_request' }, reqId); return true; }
+      const reservedEmail = String(process.env.PITCHLINE_ADMIN_EMAIL || '').trim().toLowerCase();
       const users = await db.list<RecordShape>('auth_users', { limit: 5000 });
-      if (users.items.some(item => String(item.email || '').toLowerCase() === email)) { send(response, 409, { error: 'An account already exists for that email.', code: 'account_exists' }, reqId); return true; }
+      if ((reservedEmail && email === reservedEmail) || users.items.some(item => String(item.email || '').toLowerCase() === email)) { send(response, 409, { error: 'An account already exists for that email.', code: 'account_exists' }, reqId); return true; }
       const [id] = await db.add('auth_users', [{ email, name, passwordHash: passwordHash(password), createdAt: Date.now() }]);
       const existingRoles = await db.list<RecordShape>('user_roles', { limit: 5000 });
       if (!existingRoles.items.some(item => String(item.userId) === id)) await db.add('user_roles', [{ userId: id, role: 'Supporter', updatedAt: Date.now(), source: 'Self registration' }]);
@@ -176,7 +196,11 @@ async function authEndpoint(request: VercelRequest, response: VercelResponse, pa
         const [id] = await db.add('auth_users', [{ email, name: configuredName, passwordHash: passwordHash(password), createdAt: Date.now() }]);
         found = { id, email, name: configuredName };
       } else if (found.id) {
-        await db.update('auth_users', [{ id: String(found.id), record: { ...found, email, name: configuredName, passwordHash: passwordHash(password), updatedAt: Date.now(), source: 'Vercel bootstrap administrator' } }]);
+        // Only rewrite the credential when it actually changed, and revoke older sessions when it did.
+        const passwordChanged = !verifyPassword(password, String(found.passwordHash || ''));
+        if (passwordChanged || String(found.name || '') !== configuredName) {
+          await db.update('auth_users', [{ id: String(found.id), record: { ...found, email, name: configuredName, passwordHash: passwordChanged ? passwordHash(password) : found.passwordHash, updatedAt: Date.now(), ...(passwordChanged ? { sessionsValidAfter: Date.now() } : {}), source: 'Vercel bootstrap administrator' } }]);
+        }
       }
       const roles = await db.list<RecordShape>('user_roles', { limit: 5000 });
       const matchingRoles = roles.items.filter(item => String(item.userId) === String(found?.id));
@@ -207,7 +231,12 @@ async function authEndpoint(request: VercelRequest, response: VercelResponse, pa
 export default async function api(request: VercelRequest, response: VercelResponse) {
   const reqId = requestId();
   const pathname = normalizePath(request);
-  const actor = getSessionUser(request);
+  let actor = getSessionUser(request);
+  if (actor && await sessionRevoked(actor)) {
+    // Credential reset since this session was issued: drop every credential source so downstream guards see no session.
+    for (const header of ['cookie', 'authorization', 'x-pitchline-session']) delete request.headers[header];
+    actor = null;
+  }
   const mutation = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method || '');
   if (pathname === '/api/_healthcheck' && request.method === 'GET') {
     send(response, 200, { ok: true, runtime: 'vercel-node', databaseConfigured: Boolean(process.env.DATABASE_URL), sessionConfigured: Boolean(process.env.PITCHLINE_SESSION_SECRET), adminBootstrapConfigured: Boolean(process.env.PITCHLINE_ADMIN_EMAIL && process.env.PITCHLINE_ADMIN_PASSWORD), auditLoggingEnabled: Boolean(process.env.DATABASE_URL), timestamp: new Date().toISOString() }, reqId); return;
@@ -226,10 +255,12 @@ export default async function api(request: VercelRequest, response: VercelRespon
     return;
   }
   const requestBody = bodyObject(request.body);
-  if (request.method === 'POST' && pathname === '/api/team-sheets' && String(requestBody.fixtureId || '').trim()) {
-    const fixtureId = String(requestBody.fixtureId).trim();
-    const existing = (await db.list<RecordShape>('team_sheets', { limit: 5000 })).items.find(item => String(item.fixtureId || '') === fixtureId);
-    if (existing?.id) request.body = { ...requestBody, id: String(existing.id) };
+  // Match-operator policy (single source of truth): LFA Admin, plus Managers for fixtures involving their own team
+  // (fixture scope is enforced by the route guards / canOperateFixture). Club accounts cannot operate live matches.
+  const liveOperatorPaths = ['start', 'pause', 'resume', 'finish', 'events', 'events-v2', 'undo'].map(name => `/api/live-match/${name}`);
+  if (request.method === 'POST' && liveOperatorPaths.includes(pathname) && actor && !(await isMatchOperator(actor.userId))) {
+    send(response, 403, { error: 'Match operator role required', code: 'forbidden' }, reqId);
+    return;
   }
   if (request.method === 'POST' && pathname === '/api/live-match/events-v2' && actor && await isMatchOperator(actor.userId)) {
     const duplicate = await findDuplicateLiveEvent(requestBody);

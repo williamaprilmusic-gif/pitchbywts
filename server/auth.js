@@ -33,7 +33,7 @@ function sign(value) {
 }
 
 function encode(user) {
-  const payload = Buffer.from(JSON.stringify({ ...user, exp: Math.floor(Date.now() / 1000) + SESSION_TTL_SECONDS })).toString('base64url');
+  const payload = Buffer.from(JSON.stringify({ ...user, exp: Math.floor(Date.now() / 1000) + SESSION_TTL_SECONDS, iat: Date.now() })).toString('base64url');
   return `${payload}.${sign(payload)}`;
 }
 
@@ -49,7 +49,7 @@ function decode(token) {
     const parsed = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
     if (!parsed.userId || !parsed.email || !parsed.name) return null;
     if (Number(parsed.exp || 0) <= Math.floor(Date.now() / 1000)) return null;
-    return { userId: parsed.userId, email: parsed.email, name: parsed.name };
+    return { userId: parsed.userId, email: parsed.email, name: parsed.name, iat: Number(parsed.iat || 0) };
   } catch {
     return null;
   }
