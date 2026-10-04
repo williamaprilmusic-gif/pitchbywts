@@ -57,7 +57,7 @@ export default function LiveMatchCentre({ role, setNotice }: Props) {
   const [busy, setBusy] = useState(false);
   const [now, setNow] = useState(Date.now());
   const connectionRef = useRef<ReturnType<typeof ws.connect> | null>(null);
-  const canManage = ['LFA Admin', 'Manager', 'Club Manager'].includes(role);
+  const canManage = ['LFA Admin', 'Manager'].includes(role);
   // Managers can only control fixtures involving their own team (the scoped context request tells us).
   const [scopeAllowed, setScopeAllowed] = useState(true);
   const canControl = canManage && (role === 'LFA Admin' || scopeAllowed);
