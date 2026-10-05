@@ -45,7 +45,7 @@ jobs:
           test -n "$PITCHLINE_QA_PASSWORD" || { echo 'Missing GitHub Secret: PITCHLINE_QA_PASSWORD'; exit 2; }
 
       - name: Install QA dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
       - name: Run authenticated production QA
         run: node scripts/production-authenticated-qa.mjs
