@@ -308,3 +308,26 @@ html,body{overflow-x:hidden}
 .division-option:has(input:checked){border-color:#2563eb;background:#eff6ff}
 .division-preview{margin:4px 0 10px;font-size:13px;color:#475569;overflow-wrap:anywhere}
 .add-inline .form-error{overflow-wrap:anywhere}
+/* Fixture generator (LFA Admin auto-populate flow) */
+.fixture-gen{display:grid;gap:12px;min-width:0;margin-bottom:16px}
+.fixture-gen-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.fixture-gen-grid label{display:grid;gap:4px;font-size:13px;color:#53635c;min-width:0}
+.fixture-gen-grid select,.fixture-gen-grid input{width:100%;min-width:0;min-height:44px;box-sizing:border-box}
+.fixture-gen-picks{display:flex;flex-wrap:wrap;gap:8px;margin:0;padding:8px 0 0;border:0;min-width:0}
+.fixture-gen-picks legend{font-size:13px;font-weight:700;color:#53635c;padding:0}
+.fixture-gen-chip{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 12px;border:1px solid #dfe8e3;border-radius:10px;background:#fff;font-size:14px;max-width:100%;cursor:pointer}
+.fixture-gen-chip input{width:20px;height:20px;flex:0 0 auto}
+.fixture-gen .primary,.fixture-gen .ghost{min-height:44px}
+.fixture-gen-preview{display:grid;gap:10px;min-width:0}
+.fixture-gen-warn{margin:0;padding:10px 12px;border:1px solid #d97706;border-radius:10px;background:#fff7ed;color:#7c2d12;font-size:13px}
+.fixture-gen-note{margin:0;padding:10px 12px;border:1px solid #cfe3d8;border-radius:10px;background:#f4faf7;color:#27493a;font-size:13px}
+.fixture-gen-list{display:grid;gap:6px;max-height:420px;overflow:auto;min-width:0}
+.fixture-gen-day{display:grid;gap:4px;padding:8px 0;border-top:1px solid #edf1ee}
+.fixture-gen-row{display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 12px;padding:6px 8px;border-radius:8px;background:#f7faf8;font-size:13px;min-width:0}
+.fixture-gen-row span,.fixture-gen-row small{min-width:0;overflow-wrap:anywhere}
+.fixture-gen-row.dup{background:#fff7ed}
+.fixture-gen-actions{display:flex;flex-wrap:wrap;gap:8px}
+@media (max-width:760px){
+  .fixture-gen-grid{grid-template-columns:minmax(0,1fr)}
+  .fixture-gen-actions button{flex:1 1 100%}
+}
