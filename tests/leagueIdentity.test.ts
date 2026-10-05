@@ -58,6 +58,11 @@ async function get(pathname: string, userId: string) {
   const text = await res.text();
   return { status: res.status, body: text ? JSON.parse(text) : null };
 }
+async function post(pathname: string, userId: string) {
+  const res = await fetch(`http://127.0.0.1:${port}${pathname}`, { method: 'POST', headers: { cookie: 'pitchline_session=' + encodeURIComponent(tokenFor(userId)), 'content-type': 'application/json' }, body: '{}' });
+  const text = await res.text();
+  return { status: res.status, body: text ? JSON.parse(text) : null };
+}
 function seedUsers() {
   seedFakeNeon('auth_users', ['u-lfa', 'u-sup'].map(id => ({ id, email: id + '@test.local', name: id })));
   seedFakeNeon('user_roles', [{ id: 'r1', userId: 'u-lfa', role: 'LFA Admin' }, { id: 'r2', userId: 'u-sup', role: 'Supporter' }]);
@@ -104,6 +109,9 @@ for (const user of ['u-lfa', 'u-sup', 'u-lfa']) {
     assert.ok(Array.isArray(r.body), `${route} returns a list`);
   }
 }
+// NOTE: in the built bundle GET /api/fixtures and /api/teams are served by the public read handlers in server/apiEntrypoint.ts
+// (no identity writes), so fixture stamping is exercised through the explicit admin reconcile route as well.
+assert.equal((await post('/api/league-identity/reconcile', 'u-lfa')).status, 200);
 const after = { teams: byId(dumpFakeNeon('teams')), players: byId(dumpFakeNeon('players')), fixtures: byId(dumpFakeNeon('fixtures')), clubs: byId(dumpFakeNeon('clubs')) };
 
 // nothing that already had an id was re-parented
@@ -143,20 +151,23 @@ seedFakeNeon('leagues', [{ id: 'L1', name: 'Only League', season: '2026', countr
 seedFakeNeon('teams', [team('t1', 'Reds U13'), team('t2', 'Blues U13')]);
 seedFakeNeon('players', [player('p1', 'Ann', 'Reds U13')]);
 seedFakeNeon('fixtures', [fixture('f1', 'Reds U13', 'Blues U13')]);
-const fx = (await get('/api/fixtures', 'u-sup')).body as Rec[];
+assert.equal(((await get('/api/fixtures', 'u-sup')).body as Rec[]).length, 1);
+const tm = (await get('/api/teams', 'u-lfa')).body as Rec[];
+const pl = (await get('/api/players', 'u-lfa')).body as Rec[];
+assert.equal((await post('/api/league-identity/reconcile', 'u-lfa')).status, 200);
+const fx = dumpFakeNeon('fixtures') as Rec[];
+const tmFull = dumpFakeNeon('teams') as Rec[];
 assert.equal(fx.length, 1);
 assert.deepEqual([fx[0].leagueId, fx[0].homeTeamId, fx[0].awayTeamId], ['L1', 't1', 't2']);
-const tm = (await get('/api/teams', 'u-lfa')).body as Rec[];
-assert.ok(tm.every(t => t.leagueId === 'L1' && t.clubId && t.teamId === t.id));
-const pl = (await get('/api/players', 'u-lfa')).body as Rec[];
-assert.deepEqual([pl[0].leagueId, pl[0].teamId, pl[0].playerId, pl[0].clubId === tm.find(t => t.id === 't1')!.clubId], ['L1', 't1', 'M-p1', true]);
+assert.ok(tmFull.every(t => t.leagueId === 'L1' && t.clubId && t.teamId === t.id));
+assert.deepEqual([pl[0].leagueId, pl[0].teamId, pl[0].playerId, pl[0].clubId === tmFull.find(t => t.id === 't1')!.clubId], ['L1', 't1', 'M-p1', true]);
 assert.equal(dumpFakeNeon('leagues').length, 1);
 assert.equal(dumpFakeNeon('clubs').length, 2);
 
 // ===== Scenario 3: no league at all: the default league is created exactly once =====
 resetFakeNeon(); seedUsers();
 seedFakeNeon('teams', [team('t1', 'Reds U13')]);
-await get('/api/teams', 'u-lfa'); await get('/api/teams', 'u-sup'); await get('/api/fixtures', 'u-lfa');
+await get('/api/players', 'u-lfa'); await get('/api/players', 'u-sup'); await get('/api/players', 'u-lfa');
 assert.equal(dumpFakeNeon('leagues').length, 1);
 assert.equal(dumpFakeNeon('teams')[0].leagueId, dumpFakeNeon('leagues')[0].id);
 
