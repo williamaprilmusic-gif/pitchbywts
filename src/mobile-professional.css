@@ -331,3 +331,7 @@ html,body{overflow-x:hidden}
   .fixture-gen-grid{grid-template-columns:minmax(0,1fr)}
   .fixture-gen-actions button{flex:1 1 100%}
 }
+.add-inline .form-grid>select:disabled{opacity:.6;cursor:not-allowed}
+.add-inline .form-grid>select[aria-invalid='true']{border-color:#c0392b}
+.player-meta span:not(:first-child){white-space:nowrap}
+.add-inline button.primary,.add-inline .icon-btn{min-height:40px}
