@@ -3,7 +3,7 @@ import { api, ws } from './platformClient';
 import { Activity, CalendarDays, Check, CircleDollarSign, GitBranch, RefreshCw, Shield, Trophy, Users } from 'lucide-react';
 
 type Role='Supporter'|'Manager'|'Club'|'LFA Admin';
-type Competition={id:string;name:string;type:'League'|'Tournament';season:string;country:string;status:string;isActive:boolean;legacyLeagueId?:string};
+type Competition={id:string;name:string;type:'League'|'Tournament'|'Cup';season:string;country:string;status:string;isActive:boolean;legacyLeagueId?:string};
 type Snapshot={version:string;role:Role;activeCompetition?:Competition;competitions:Competition[];scope:{competitionId?:string;leagueId?:string};records:{teams:number;players:number;fixtures:number;completed:number;upcoming:number;officials:number;finance:number;workflowOpen:number};integrity:{linkedFixtures:number;linkedTeams:number;linkedPlayers:number;unlinkedLegacy:number};permissions:string[];lastUpdatedAt:number};
 const fallback:Snapshot={version:'20.0',role:'Supporter',competitions:[],scope:{},records:{teams:0,players:0,fixtures:0,completed:0,upcoming:0,officials:0,finance:0,workflowOpen:0},integrity:{linkedFixtures:0,linkedTeams:0,linkedPlayers:0,unlinkedLegacy:0},permissions:['competition.context.read'],lastUpdatedAt:0};
 export default function CrossCompetitionControl({setNotice}:{setNotice:(v:string)=>void}){

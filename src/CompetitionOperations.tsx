@@ -3,7 +3,7 @@ import { api } from './platformClient';
 import { CalendarDays, Check, ChevronRight, Flag, GitBranch, RefreshCw, Shield, Trophy, Users } from 'lucide-react';
 
 type Role='Supporter'|'Manager'|'Club'|'LFA Admin';
-type Competition={id:string;name:string;type:'League'|'Tournament';season:string;status:string;isActive:boolean};
+type Competition={id:string;name:string;type:'League'|'Tournament'|'Cup';season:string;status:string;isActive:boolean};
 type Team={id:string;name:string;ageGroup:string;clubId?:string};
 type Snapshot={role:Role;competition:Competition|null;competitions:Competition[];seasons:any[];divisions:any[];groups:any[];rules:any[];brackets:any[];bracketMatches:any[];groupEntries:any[];promotionRelegation:any[];approvals:any[];fixtures:any[];teams:Team[];players:any[];officials:any[];clubs:any[];audit:any[];summary:Record<string,number>;permissions:string[]};
 const blank:Snapshot={role:'Supporter',competition:null,competitions:[],seasons:[],divisions:[],groups:[],rules:[],brackets:[],bracketMatches:[],groupEntries:[],promotionRelegation:[],approvals:[],fixtures:[],teams:[],players:[],officials:[],clubs:[],audit:[],summary:{},permissions:[]};
