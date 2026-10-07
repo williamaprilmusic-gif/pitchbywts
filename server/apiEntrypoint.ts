@@ -3,6 +3,8 @@ import { clearSessionCookie, getSessionUser, passwordHash, setSessionCookie, ver
 import { db } from './appdeployCompat';
 import { sessionRevoked as sharedSessionRevoked } from './sessionRevocation.js';
 import { handler, canOperateFixture } from '../backend/index.ts';
+import { isSiteAdmin as isBootstrapAdminEmail } from '../backend/tenancy.ts';
+import { canonicalAdminRole } from '../backend/roles.ts';
 
 type VercelRequest = IncomingMessage & { method?: string; body?: unknown; query?: Record<string, string | string[] | undefined> };
 type VercelResponse = ServerResponse;
@@ -34,22 +36,47 @@ function normalizePath(request: VercelRequest) {
   return value ? `/api/${value.replace(/^\/+/, '')}` : new URL(request.url || '/', 'https://pitchline.local').pathname;
 }
 
-async function isLfaAdmin(userId?: string) {
-  if (!userId) return false;
+// Role checks are cached for warm instances (this block was previously injected by scripts/prepare-resource-optimization.mjs,
+// which now no-ops because PITCHLINE_ROLE_CACHE_TTL is present in source). Every admin kind maps to 'LFA Admin' for the guards;
+// the bootstrap email (PITCHLINE_ADMIN_EMAIL) is an admin regardless of its stored role. A stored LFA/Tournament admin with
+// empty competitionIds still passes in phase 3 (competition membership is enforced in phase 5).
+const PITCHLINE_ROLE_CACHE_TTL = 30_000;
+const roleCache = new Map<string, { role: string; expiresAt: number }>();
+
+function canonicalRole(value: unknown) {
+  const role = String(value || '').trim().toLowerCase();
+  if (role === 'lfa admin' || role === 'lfa-admin' || role === 'admin' || role === 'tournament admin' || role === 'site admin') return 'LFA Admin';
+  if (role === 'team manager' || role === 'manager') return 'Manager';
+  if (role === 'club') return 'Club';
+  return 'Supporter';
+}
+
+async function getCachedUserRole(userId: string) {
+  const cached = roleCache.get(userId);
+  if (cached && cached.expiresAt > Date.now()) return cached.role;
   const result = await db.list<RecordShape>('user_roles', { limit: 5000 });
-  return result.items.some(item => String(item.userId) === userId && String(item.role) === 'LFA Admin');
+  const found = result.items.find(item => String(item.userId) === userId);
+  let role = canonicalRole(found?.role);
+  if (role !== 'LFA Admin' && process.env.PITCHLINE_ADMIN_EMAIL) {
+    const account = (await db.get<RecordShape>('auth_users', [userId]))[0];
+    if (isBootstrapAdminEmail(account?.email)) role = 'LFA Admin';
+  }
+  roleCache.set(userId, { role, expiresAt: Date.now() + PITCHLINE_ROLE_CACHE_TTL });
+  return role;
+}
+
+async function isLfaAdmin(userId?: string) {
+  return Boolean(userId && (await getCachedUserRole(userId)) === 'LFA Admin');
 }
 
 async function isMatchOperator(userId?: string) {
   if (!userId) return false;
-  const result = await db.list<RecordShape>('user_roles', { limit: 5000 });
-  return result.items.some(item => String(item.userId) === userId && ['LFA Admin', 'Manager'].includes(String(item.role)));
+  const role = await getCachedUserRole(userId);
+  return role === 'LFA Admin' || role === 'Manager';
 }
 
 async function getUserRole(userId: string) {
-  const result = await db.list<RecordShape>('user_roles', { limit: 5000 });
-  const found = result.items.find(item => String(item.userId) === userId);
-  return String(found?.role || 'Supporter');
+  return getCachedUserRole(userId);
 }
 
 async function getUserClub(userId: string) {
@@ -61,7 +88,7 @@ async function getUserClub(userId: string) {
 async function getProtectedInvoices(user: AuthUser) {
   const roleRows = await db.list<RecordShape>('user_roles', { limit: 5000 });
   const roleRecord = roleRows.items.find(item => String(item.userId) === user.userId);
-  const role = String(roleRecord?.role || 'Supporter');
+  const role = isBootstrapAdminEmail(user.email) ? 'LFA Admin' : String(canonicalAdminRole(roleRecord?.role || 'Supporter'));
   if (!['LFA Admin', 'Club'].includes(role)) return { status: 403, body: { error: 'Finance access is restricted to LFA Admin and Club roles.' } };
   const rows = (await db.list<RecordShape>('invoices', { limit: 5000 })).items;
   const clubScope = String(roleRecord?.club || '').trim().toLowerCase();
@@ -158,7 +185,7 @@ async function authEndpoint(request: VercelRequest, response: VercelResponse, pa
     }
     clearSessionCookie(response); send(response, 200, { ok: true }, reqId); return true; }
   if (pathname === '/api/auth/me' && request.method === 'GET') { const user = getSessionUser(request); if (!user) send(response, 401, { error: 'Unauthorized', code: 'not_authenticated' }, reqId); else send(response, 200, { user, role: await getUserRole(user.userId) }, reqId); return true; }
-  if (pathname === '/api/my-role' && request.method === 'GET') { const user = getSessionUser(request); if (!user) send(response, 401, { error: 'Unauthorized', code: 'not_authenticated' }, reqId); else send(response, 200, { role: await getUserRole(user.userId), club: await getUserClub(user.userId), user }, reqId); return true; }
+  if (pathname === '/api/my-role' && request.method === 'GET') { const user = getSessionUser(request); if (!user) send(response, 401, { error: 'Unauthorized', code: 'not_authenticated' }, reqId); else { const role = await getUserRole(user.userId); send(response, 200, { role, canonicalRole: role, isSiteAdmin: isBootstrapAdminEmail(user.email), club: await getUserClub(user.userId), user }, reqId); } return true; }
   if (pathname !== '/api/auth/sign-in' && pathname !== '/api/auth/sign-up') return false;
   if (request.method !== 'POST') { send(response, 405, { error: 'Method not allowed' }, reqId); return true; }
   try {

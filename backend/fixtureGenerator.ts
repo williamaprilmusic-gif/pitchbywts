@@ -1,8 +1,10 @@
 // Pure fixture-generation logic (no I/O). Used by the LFA Admin fixture generator routes.
+import { isAdminRole } from './roles.ts';
 
 /** Single place that decides who may generate fixtures. Widen here when roles change. */
 export function canGenerateFixtures(role: string | null | undefined): boolean {
-  return role === 'LFA Admin';
+  // Site, LFA and Tournament admins. No competition check yet (phase 5).
+  return isAdminRole(role);
 }
 
 export type Match = { home: string; away: string; stage?: string };
