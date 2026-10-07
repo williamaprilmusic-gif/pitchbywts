@@ -35,7 +35,7 @@ export async function cleanupProductionQa(request, response) {
   }
 
   const roles = await database`SELECT record FROM pitchline_records WHERE namespace = 'user_roles'`;
-  const admin = roles.some(row => String(row.record?.userId || '') === actor.userId && String(row.record?.role || '') === 'LFA Admin');
+  const admin = roles.some(row => String(row.record?.userId || '') === actor.userId && ['LFA Admin', 'Tournament Admin', 'Site Admin'].includes(String(row.record?.role || '')));
   if (!admin) {
     response.statusCode = 403;
     response.end(JSON.stringify({ error: 'LFA Admin role required', code: 'forbidden' }));
