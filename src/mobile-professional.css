@@ -335,3 +335,20 @@ html,body{overflow-x:hidden}
 .add-inline .form-grid>select[aria-invalid='true']{border-color:#c0392b}
 .player-meta span:not(:first-child){white-space:nowrap}
 .add-inline button.primary,.add-inline .icon-btn{min-height:40px}
+
+/* Phase 7: Site Admin competition management + header competition selector */
+.competition-selector{display:inline-flex;align-items:center;gap:8px;min-width:0;max-width:100%}
+.competition-selector span{font-size:12px;color:var(--muted,#64748b);white-space:nowrap}
+.competition-selector select{min-height:40px;max-width:220px;min-width:0}
+.site-admin-card{margin-top:16px;min-width:0}
+.site-admin-list{display:grid;gap:12px;min-width:0}
+.site-admin-row{display:grid;gap:10px;padding:12px;border:1px solid var(--line,#e2e8f0);border-radius:12px;min-width:0;overflow-wrap:anywhere}
+.site-admin-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap}
+.site-admin-top small,.site-admin-row small{display:block;color:var(--muted,#64748b)}
+.site-admin-actions,.site-admin-edit,.site-admin-checks,.site-admin-links{display:flex;flex-wrap:wrap;gap:8px;align-items:center;min-width:0}
+.site-admin-card button,.site-admin-card input:not([type=checkbox]),.site-admin-card select{min-height:40px;min-width:0;max-width:100%}
+.site-admin-card input[type=checkbox]{width:20px;height:20px}
+.site-admin-checks label{display:inline-flex;align-items:center;gap:6px;min-height:40px}
+.site-admin-chip{display:inline-flex;align-items:center;gap:4px;padding:2px 4px 2px 10px;border-radius:999px;background:var(--soft,#f1f5f9);min-height:40px}
+.site-admin-chip button{min-width:40px;border:0;background:transparent;cursor:pointer;font-size:18px}
+@media (max-width:640px){.site-admin-edit>*,.site-admin-actions>*{flex:1 1 100%}.competition-selector select{max-width:150px}}

@@ -16,7 +16,8 @@
     "test:migration": "node tests/migration.test.ts",
     "test:player-division": "node tests/playerDivision.test.ts",
     "test:roles": "node tests/roles.test.ts",
-    "test:bootstrap": "node tests/bootstrap.test.ts"
+    "test:bootstrap": "node tests/bootstrap.test.ts",
+    "test:site-admin": "node tests/siteAdmin.test.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.0",

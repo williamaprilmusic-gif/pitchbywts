@@ -6,6 +6,7 @@ import { isSiteAdmin, resolveAccess, type Rec } from './tenancy';
 import { canonicalAdminRole } from './roles';
 import { coerceCompetitionKind } from './competitionModel';
 import { migrateTenancy, type MigrationDeps } from './tenancyMigration';
+import { siteAdminRoutes } from './siteAdminRoutes';
 
 function requireSiteAdminOnly(): RouterMiddleware {
   return async (ctx) => {
@@ -32,6 +33,7 @@ async function myAccess(userId: string, email: unknown) {
 }
 
 export const tenancyRoutes: Record<string, RouterMiddleware[]> = {
+  ...siteAdminRoutes,
   'GET /api/my-access': [requireAuth(), async ({ user }) => json(await myAccess(user!.userId, user!.email))],
   'POST /api/admin/migrate-tenancy': [requireAuth(), requireSiteAdminOnly(), async ({ body, user }) => {
     const input = (body && typeof body === 'object' ? body : {}) as { dryRun?: unknown; allowCapped?: unknown };
