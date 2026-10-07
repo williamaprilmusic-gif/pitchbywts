@@ -1,3 +1,5 @@
+import { withCompetition } from './competitionSelection';
+
 type ApiResponse<T = unknown> = { data: T };
 
 type RequestMethod = 'GET' | 'POST' | 'PUT' | 'DELETE';
@@ -126,7 +128,7 @@ function writeStoredUser(user: LocalUser | null) {
 }
 
 export const api = {
-    get: <T = unknown>(url: string) => request<T>('GET', url),
+    get: <T = unknown>(url: string) => request<T>('GET', withCompetition(url)),
     post: <T = unknown>(url: string, body?: unknown) => request<T>('POST', url, body),
     put: <T = unknown>(url: string, body?: unknown) => request<T>('PUT', url, body),
     delete: <T = unknown>(url: string, body?: unknown) => request<T>('DELETE', url, body),
