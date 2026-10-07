@@ -65,10 +65,11 @@ export function resolveAccessFrom(data: AccessData, userId: string, email: unkno
   const row = (data.user_roles || []).find(r => str(r.userId) === userId);
   const stored = str(row?.role);
   const catalog = data.competition_catalog ?? [];
-  if (stored === 'LFA Admin' || stored === 'Tournament Admin') {
+  // A stored 'Site Admin' on anyone but the bootstrap email (handled above) is only a normal admin: no cross-tenant power.
+  if (stored === 'LFA Admin' || stored === 'Tournament Admin' || stored === 'Site Admin') {
     const raw = row?.competitionIds;
     const ids = Array.isArray(raw) ? raw.map(str).filter(Boolean) : [];
-    return { role: stored, isSite: false, competitionIds: new Set(ids), clubIds: new Set() };
+    return { role: stored === 'Site Admin' ? 'LFA Admin' : stored, isSite: false, competitionIds: new Set(ids), clubIds: new Set() };
   }
   if (stored === 'Club' || stored === 'Manager') {
     const clubIds = new Set<string>();

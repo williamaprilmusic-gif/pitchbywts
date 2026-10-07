@@ -104,7 +104,7 @@ for (const u of ['u-mgr', 'u-sup']) assert.equal((await call('GET', '/api/invoic
 for (const u of ['u-tour', 'u-site']) assert.equal((await call('GET', '/api/teams', u)).status, 200);
 // reads never rewrite stored rows
 assert.equal(dumpFakeNeon('user_roles').find(r => r.id === 'r2')!.role, 'Tournament Admin');
-assert.equal(dumpFakeNeon('user_roles').find(r => r.id === 'r0')!.role, 'Supporter', 'bootstrap stored role untouched (phase 4)');
+assert.equal(dumpFakeNeon('user_roles').find(r => r.id === 'r0')!.role, 'Supporter', 'reads never rewrite the bootstrap stored role (only sign-in does, see test:bootstrap)');
 
 // ===== /api/my-role and /api/my-access shapes =====
 const mr = async (u: string) => (await call('GET', '/api/my-role', u)).body;
@@ -121,6 +121,8 @@ assert.equal((await call('GET', '/api/my-access', null)).status, 401);
   assert.equal(o.role, 'Site Admin'); assert.equal(o.canonicalRole, 'LFA Admin'); assert.equal(o.isSiteAdmin, true); assert.equal(o.competitionIds, 'all'); assert.equal(o.competitions.length, 2);
   const l = (await call('GET', '/api/my-access', 'u-lfa')).body;
   assert.equal(l.role, 'LFA Admin'); assert.equal(l.canonicalRole, 'LFA Admin'); assert.equal(l.isSiteAdmin, false); assert.deepEqual(l.competitionIds, []); assert.deepEqual(l.competitions, []);
+  const f = (await call('GET', '/api/my-access', 'u-site')).body; // stored 'Site Admin' on a non-bootstrap user: ordinary admin only
+  assert.equal(f.role, 'LFA Admin'); assert.equal(f.canonicalRole, 'LFA Admin'); assert.equal(f.isSiteAdmin, false); assert.notEqual(f.competitionIds, 'all');
   const t = (await call('GET', '/api/my-access', 'u-tour')).body;
   assert.equal(t.role, 'Tournament Admin'); assert.equal(t.canonicalRole, 'LFA Admin'); assert.equal(t.isSiteAdmin, false);
   const s = (await call('GET', '/api/my-access', 'u-sup')).body;

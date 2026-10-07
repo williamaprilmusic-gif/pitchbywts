@@ -58,6 +58,12 @@ const site = r('bootstrapRow', 'OWNER@example.com');
 assert.deepEqual([site.role, site.isSite, site.competitionIds], ['Site Admin', true, 'all']);
 // the bootstrap email is always Site Admin even with a lesser stored row
 assert.equal(resolveAccessFrom({ user_roles: [{ userId: 'u', role: 'LFA Admin' }] }, 'u', 'owner@example.com', env).isSite, true);
+// Site Admin = bootstrap email only: a stored 'Site Admin' row on anyone else is a plain admin with no cross-tenant power
+{ const f = resolveAccessFrom({ user_roles: [{ userId: 'fake', role: 'Site Admin', competitionIds: ['cA'] }] }, 'fake', 'fake@example.com', env);
+  assert.deepEqual([f.role, f.isSite, [...(f.competitionIds as Set<string>)]], ['LFA Admin', false, ['cA']]);
+  const g = resolveAccessFrom({ user_roles: [{ userId: 'fake', role: 'Site Admin' }] }, 'fake', 'fake@example.com', env);
+  assert.deepEqual([g.role, g.isSite, g.competitionIds === 'all'], ['LFA Admin', false, false]);
+  assert.equal(resolveAccessFrom({ user_roles: [{ userId: 'fake', role: 'Site Admin' }] }, 'fake', 'fake@example.com', {}).isSite, false); }
 assert.deepEqual(set(r('lfa')), ['cA']);
 assert.equal(r('lfa').isSite, false);
 assert.deepEqual(set(r('lfaNone')), []);

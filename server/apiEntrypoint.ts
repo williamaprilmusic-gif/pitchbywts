@@ -5,6 +5,7 @@ import { sessionRevoked as sharedSessionRevoked } from './sessionRevocation.js';
 import { handler, canOperateFixture } from '../backend/index.ts';
 import { isSiteAdmin as isBootstrapAdminEmail } from '../backend/tenancy.ts';
 import { canonicalAdminRole } from '../backend/roles.ts';
+import { planBootstrapRole } from '../backend/bootstrapRole.ts';
 
 type VercelRequest = IncomingMessage & { method?: string; body?: unknown; query?: Record<string, string | string[] | undefined> };
 type VercelResponse = ServerResponse;
@@ -224,19 +225,10 @@ async function authEndpoint(request: VercelRequest, response: VercelResponse, pa
           await db.update('auth_users', [{ id: String(found.id), record: { ...found, email, name: configuredName, passwordHash: passwordChanged ? passwordHash(password) : found.passwordHash, updatedAt: Date.now(), ...(passwordChanged ? { sessionsValidAfter: Date.now() } : {}), source: 'Vercel bootstrap administrator' } }]);
         }
       }
-      const roles = await db.list<RecordShape>('user_roles', { limit: 5000 });
-      const matchingRoles = roles.items.filter(item => String(item.userId) === String(found?.id));
-      if (!matchingRoles.length) {
-        await db.add('user_roles', [{ userId: String(found.id), role: 'LFA Admin', updatedAt: Date.now(), source: 'Vercel bootstrap administrator' }]);
-      } else {
-        for (const existingRole of matchingRoles) {
-          if (existingRole.id && String(existingRole.role) !== 'LFA Admin') {
-            await db.update('user_roles', [{ id: String(existingRole.id), record: { ...existingRole, role: 'LFA Admin', updatedAt: Date.now(), source: 'Vercel bootstrap administrator' } }]);
-          } else if (existingRole.id && String(existingRole.role) === 'LFA Admin') {
-            await db.update('user_roles', [{ id: String(existingRole.id), record: { ...existingRole, role: 'LFA Admin', updatedAt: Date.now(), source: 'Vercel bootstrap administrator' } }]);
-          }
-        }
-      }
+      // Stored role becomes 'Site Admin' (no-op when it already is). Access never depends on this row: the bootstrap email is admin from the session.
+      const plan = planBootstrapRole((await db.list<RecordShape>('user_roles', { limit: 5000 })).items, String(found.id), Date.now());
+      if (plan.add) await db.add('user_roles', [plan.add]);
+      for (const change of plan.updates) await db.update('user_roles', [change]);
       user = { userId: String(found.id), email, name: configuredName };
     } else {
       const users = await db.list<RecordShape>('auth_users', { limit: 5000 });
