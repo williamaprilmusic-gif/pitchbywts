@@ -9,6 +9,7 @@ export function isAdminRole(role: unknown): boolean {
   return typeof role === 'string' && (ADMIN_ROLES as readonly string[]).includes(role);
 }
 
+/** Label check only. A stored 'Site Admin' row carries NO power unless the session email is the bootstrap email (isSiteAdmin). */
 export function isSiteAdminRole(role: unknown): boolean {
   return role === 'Site Admin';
 }
