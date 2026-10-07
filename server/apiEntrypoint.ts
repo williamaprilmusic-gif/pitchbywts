@@ -226,9 +226,12 @@ async function authEndpoint(request: VercelRequest, response: VercelResponse, pa
         }
       }
       // Stored role becomes 'Site Admin' (no-op when it already is). Access never depends on this row: the bootstrap email is admin from the session.
-      const plan = planBootstrapRole((await db.list<RecordShape>('user_roles', { limit: 5000 })).items, String(found.id), Date.now());
-      if (plan.add) await db.add('user_roles', [plan.add]);
-      for (const change of plan.updates) await db.update('user_roles', [change]);
+      // Best effort: a failed sync must never block the bootstrap administrator from signing in.
+      try {
+        const plan = planBootstrapRole((await db.list<RecordShape>('user_roles', { limit: 5000 })).items, String(found.id), Date.now());
+        if (plan.add) await db.add('user_roles', [plan.add]);
+        for (const change of plan.updates) await db.update('user_roles', [change]);
+      } catch (syncError) { console.error('Pitchline bootstrap role sync failed', syncError); }
       user = { userId: String(found.id), email, name: configuredName };
     } else {
       const users = await db.list<RecordShape>('auth_users', { limit: 5000 });
