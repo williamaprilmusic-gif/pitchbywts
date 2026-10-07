@@ -351,4 +351,4 @@ html,body{overflow-x:hidden}
 .site-admin-checks label{display:inline-flex;align-items:center;gap:6px;min-height:40px}
 .site-admin-chip{display:inline-flex;align-items:center;gap:4px;padding:2px 4px 2px 10px;border-radius:999px;background:var(--soft,#f1f5f9);min-height:40px}
 .site-admin-chip button{min-width:40px;border:0;background:transparent;cursor:pointer;font-size:18px}
-@media (max-width:640px){.site-admin-edit>*,.site-admin-actions>*{flex:1 1 100%}.competition-selector select{max-width:150px}}
+@media (max-width:640px){.site-admin-edit>*,.site-admin-actions>*{flex:1 1 100%}.competition-selector span{display:none}.competition-selector select{max-width:118px;font-size:13px}}
