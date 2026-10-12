@@ -58,7 +58,7 @@ export default function ClubManagement({ role, setNotice }:Props){
   const addStaff=async()=>{
     if(!canManage){setNotice('Only club or league administrators can manage staff.');return}
     if(!staffForm.name.trim()){setNotice('Enter a staff member name.');return}
-    try{await api.post('/api/club-staff',staffForm);setStaffForm({name:'',role:'Club administrator',team:'Club-wide'});setNotice('Staff member added.');}catch{setNotice('Could not add staff member.');}
+    try{await api.post('/api/club-staff',staffForm);setStaffForm({name:'',role:'Club administrator',team:'Club-wide'});await load();setNotice('Staff member added.');}catch{setNotice('Could not add staff member.');}
   };
   const addTeam=async()=>{
     if(!canManage){setNotice('Only club or league administrators can add teams.');return}
@@ -70,13 +70,13 @@ export default function ClubManagement({ role, setNotice }:Props){
     if(!transferForm.playerRef||!transferForm.toTeam){setNotice('Select a player and destination team.');return}
     const player=players.find(p=>p.memberRef===transferForm.playerRef);if(!player){setNotice('Player not found.');return}
     if(player.team===transferForm.toTeam){setNotice('Transfer blocked: the player is already registered to that team.');return}
-    try{await api.post('/api/player-transfers',{playerRef:player.memberRef,playerName:player.name,fromTeam:player.team,toTeam:transferForm.toTeam});setTransferForm({playerRef:'',toTeam:''});setNotice('Transfer request submitted.');}catch{setNotice('Could not submit the transfer request.');}
+    try{await api.post('/api/player-transfers',{playerRef:player.memberRef,playerName:player.name,fromTeam:player.team,toTeam:transferForm.toTeam});setTransferForm({playerRef:'',toTeam:''});await load();setNotice('Transfer request submitted.');}catch{setNotice('Could not submit the transfer request.');}
   };
   const createInvite=async()=>{
     if(!canManage){setNotice('Only club or league administrators can create invites.');return}
     try{const r=await api.post('/api/invites',{role:inviteRole,club:profile?.clubName||profileForm.clubName});setInvite(r.data);void loadInvites();setNotice('Invite code created. Share it with the new member.');}catch(e){const message=typeof e==='object'&&e!==null&&'message'in e?String((e as {message?:unknown}).message):'';setNotice(message||'Could not create the invite code.');}
   };
-  const approveTransfer=async(t:Transfer)=>{if(!canManage){setNotice('Only club or league administrators can approve transfers.');return}try{await api.put(`/api/player-transfers/${t.id}`,{status:'Approved'});setNotice('Transfer approved and squad records updated.');}catch{setNotice('Could not approve the transfer.');}};
+  const approveTransfer=async(t:Transfer)=>{if(!canManage){setNotice('Only club or league administrators can approve transfers.');return}try{await api.put(`/api/player-transfers/${t.id}`,{status:'Approved'});await load();setNotice('Transfer approved and squad records updated.');}catch{setNotice('Could not approve the transfer.');}};
 
   const teamStats=useMemo(()=>teams.map(t=>({team:t,players:players.filter(p=>p.team===t.name).length})),[teams,players]);
   const pending=transfers.filter(t=>t.status==='Pending').length;

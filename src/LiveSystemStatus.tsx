@@ -9,8 +9,9 @@ export default function LiveSystemStatus(){
     let disposed=false;
     const check=async()=>{
       try{
-        const result = await api.get('/api/_healthcheck');
-        if (result && typeof result === 'object' && 'ok' in result && result.ok === false) throw new Error('Health check failed');
+        const result = await api.get<{ok?:boolean}>('/api/_healthcheck');
+        const payload = result?.data;
+        if (payload && typeof payload === 'object' && payload.ok === false) throw new Error('Health check failed');
         if(!disposed){setState('live');setCheckedAt(Date.now())}
       } catch {
         if(!disposed){setState('offline');setCheckedAt(Date.now())}

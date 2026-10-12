@@ -11,7 +11,7 @@ export default function PublicPortal({fixtures,teams,players,communications}:{fi
   const [shared,setShared]=useState('');
   const publicTeams=useMemo(()=>teams.filter(t=>t.ageGroup===age).sort((a,b)=>b.pts-a.pts||((b.gf-b.ga)-(a.gf-a.ga))),[teams,age]);
   const upcoming=fixtures.filter(f=>f.status==='upcoming').slice(0,5);
-  const results=fixtures.filter(f=>f.status!=='upcoming').slice(0,5);
+  const results=fixtures.filter(f=>f.status==='completed').slice(0,5);
   const publicPlayers=players.filter(p=>p.team.includes(age)).slice(0,8);
   const published=communications.filter(c=>c.status==='Published').slice(0,6);
   const share=async(id:string)=>{const url=`${window.location.origin}${window.location.pathname}#public-match-${id}`;try{await navigator.clipboard.writeText(url);setShared('Match link copied.')}catch{setShared(url)}};
