@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Activity, Bell, CheckCircle2, ChevronRight, CircleAlert, CloudOff, Command, Download, FileText, Filter, History, Keyboard, LayoutDashboard, ListChecks, Search, ShieldCheck, Smartphone, Trophy, Users, Wifi, X, Zap } from 'lucide-react';
 
 type Role = 'Supporter' | 'Manager' | 'Club' | 'LFA Admin';
@@ -47,6 +47,31 @@ const emptyData: Record<Dataset, Item[]> = { fixtures: [], teams: [], players: [
 
 export default function ProfessionalSuite() {
   const [open, setOpen] = useState(false);
+  const dialogRef = useRef<HTMLElement | null>(null);
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    const dialog = dialogRef.current;
+    restoreFocusRef.current = (document.activeElement as HTMLElement) || null;
+    const focusable = () => Array.from(dialog?.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])') || []).filter(el => !el.hasAttribute('disabled') && el.offsetParent !== null);
+    (focusable()[0] || dialog)?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { event.preventDefault(); setOpen(false); return; }
+      if (event.key !== 'Tab') return;
+      const items = focusable();
+      if (!items.length) return;
+      const firstEl = items[0]; const lastEl = items[items.length - 1];
+      const active = document.activeElement as HTMLElement;
+      if (event.shiftKey && (active === firstEl || active === dialog)) { event.preventDefault(); lastEl.focus(); }
+      else if (!event.shiftKey && active === lastEl) { event.preventDefault(); firstEl.focus(); }
+    };
+    document.addEventListener('keydown', onKeyDown, true);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown, true);
+      const restore = restoreFocusRef.current;
+      if (restore && typeof restore.focus === 'function') restore.focus();
+    };
+  }, [open]);
   const [mode, setMode] = useState<'overview' | 'search' | 'matchday' | 'audit' | 'export' | 'integrity'>('overview');
   const [query, setQuery] = useState('');
   const [role, setRole] = useState<Role>('Supporter');
@@ -128,7 +153,7 @@ export default function ProfessionalSuite() {
 
   return <>
     <div className="pro-suite-backdrop" onClick={() => setOpen(false)}>
-      <section className="pro-suite" role="dialog" aria-modal="true" aria-label="Pitchline professional control suite" onClick={event => event.stopPropagation()}>
+      <section className="pro-suite" role="dialog" aria-modal="true" aria-label="Pitchline professional control suite" ref={dialogRef} tabIndex={-1} onClick={event => event.stopPropagation()}>
         <header className="pro-suite-head"><div><div className="pro-suite-kicker">PITCHLINE PROFESSIONAL CONTROL</div><h2>Operations Suite</h2><p>Real-data controls for matchday, governance, search and reporting.</p></div><div className="pro-head-actions"><span className={`pro-health ${health}`}><span className="pro-dot"/>{health === 'healthy' ? 'Systems healthy' : health === 'degraded' ? 'Service degraded' : 'Checking systems'}</span><button className="icon-btn" onClick={() => setOpen(false)} aria-label="Close professional suite"><X size={18}/></button></div></header>
         <nav className="pro-tabs"><button className={mode==='overview'?'active':''} onClick={() => setMode('overview')}><LayoutDashboard size={14}/>Overview</button><button className={mode==='search'?'active':''} onClick={() => setMode('search')}><Search size={14}/>Global search</button><button className={mode==='matchday'?'active':''} onClick={() => setMode('matchday')}><Smartphone size={14}/>Matchday mode</button><button className={mode==='integrity'?'active':''} onClick={() => setMode('integrity')}><ShieldCheck size={14}/>Data integrity</button><button className={mode==='export'?'active':''} onClick={() => setMode('export')}><Download size={14}/>Export centre</button><button className={mode==='audit'?'active':''} onClick={loadAudit}><History size={14}/>Audit trail</button></nav>
         <div className="pro-suite-body">
