@@ -4,7 +4,13 @@ const CACHE = 'pitchline-shell-v1';
 const SHELL = ['/', '/manifest.webmanifest', '/icons/icon-192.png'];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)).then(() => self.skipWaiting()));
+  // Cache each shell entry independently so a single missing/404 asset does not
+  // abort the whole install (cache.addAll is atomic and would fail silently).
+  event.waitUntil(
+    caches.open(CACHE)
+      .then((cache) => Promise.all(SHELL.map((url) => cache.add(url).catch(() => undefined))))
+      .then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener('activate', (event) => {

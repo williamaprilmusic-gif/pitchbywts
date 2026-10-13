@@ -1,8 +1,9 @@
 name: Pitchline Production Regression
 
+# Runs after Vercel reports a successful Production deployment so the production
+# health check asserts the deploy that just went live, not the previous one.
 on:
-  push:
-    branches: [main]
+  deployment_status:
   workflow_dispatch:
 
 concurrency:
@@ -15,6 +16,7 @@ permissions:
 jobs:
   build-and-regression:
     name: Build / Security / Regression Gate
+    if: github.event_name == 'workflow_dispatch' || (github.event.deployment_status.state == 'success' && contains(github.event.deployment_status.environment, 'Production'))
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -29,7 +31,7 @@ jobs:
           node-version: 22
 
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
       - name: Static production checks
         shell: bash

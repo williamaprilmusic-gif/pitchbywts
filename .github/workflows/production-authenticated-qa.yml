@@ -1,9 +1,10 @@
 name: Pitchline One-Click Authenticated Production QA
 
+# Runs after Vercel reports a successful Production deployment (deployment_status
+# with state == success), so the QA asserts the deploy that just went live rather
+# than racing the previous one on push to main.
 on:
-  push:
-    branches:
-      - main
+  deployment_status:
   workflow_dispatch:
     inputs:
       base_url:
@@ -20,13 +21,14 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  PITCHLINE_BASE_URL: ${{ inputs.base_url || 'https://pitchline-william-april.vercel.app' }}
+  PITCHLINE_BASE_URL: ${{ inputs.base_url || github.event.deployment_status.environment_url || 'https://pitchline-william-april.vercel.app' }}
   PITCHLINE_QA_EMAIL: ${{ secrets.PITCHLINE_QA_EMAIL }}
   PITCHLINE_QA_PASSWORD: ${{ secrets.PITCHLINE_QA_PASSWORD }}
 
 jobs:
   authenticated-production-qa:
     name: Full authenticated production workflow
+    if: github.event_name == 'workflow_dispatch' || (github.event.deployment_status.state == 'success' && contains(github.event.deployment_status.environment, 'Production'))
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -45,7 +47,7 @@ jobs:
           test -n "$PITCHLINE_QA_PASSWORD" || { echo 'Missing GitHub Secret: PITCHLINE_QA_PASSWORD'; exit 2; }
 
       - name: Install QA dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
       - name: Run authenticated production QA
         run: node scripts/production-authenticated-qa.mjs

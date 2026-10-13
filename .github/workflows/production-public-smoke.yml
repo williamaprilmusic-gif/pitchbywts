@@ -1,8 +1,9 @@
 name: Pitchline Production Public Smoke
 
+# Runs after Vercel reports a successful Production deployment so the smoke test
+# hits the deploy that just went live rather than the previous one.
 on:
-  push:
-    branches: [main]
+  deployment_status:
   workflow_dispatch:
 
 permissions:
@@ -10,6 +11,7 @@ permissions:
 
 jobs:
   public-and-auth-boundaries:
+    if: github.event_name == 'workflow_dispatch' || (github.event.deployment_status.state == 'success' && contains(github.event.deployment_status.environment, 'Production'))
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

@@ -24,7 +24,7 @@ jobs:
           fetch-depth: 0
 
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
       - name: Controller preflight
         shell: bash
@@ -47,6 +47,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo 'CONTROLLER DECISION: APPROVED'
-          echo 'DEEP REVIEW: PASS'
-          echo 'MERGE TO MAIN: ELIGIBLE ONLY AFTER THIS REQUIRED CHECK PASSES'
+          # This step only runs when the Controller preflight and the Independent
+          # Deep Reviewer steps above both succeeded (GitHub stops the job on the
+          # first failing step), so reaching here is itself the pass signal.
+          echo "Controller preflight: PASS"
+          echo "Independent deep reviewer: PASS"
+          echo "This required check passed; the PR is eligible to merge to main."
