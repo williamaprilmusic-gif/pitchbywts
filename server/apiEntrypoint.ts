@@ -42,7 +42,11 @@ async function isLfaAdmin(userId?: string) {
 async function isMatchOperator(userId?: string) {
   if (!userId) return false;
   const result = await db.list<RecordShape>('user_roles', { limit: 5000 });
-  return result.items.some(item => String(item.userId) === userId && ['LFA Admin', 'Manager'].includes(String(item.role)));
+  // Match the backend live-match routes, which allow LFA Admin / Manager / Club
+  // (fixture scope is still enforced by scopedFixtureAccess + canOperateFixture).
+  // Keeping this list in sync stops a Club operator from being able to pause/
+  // resume/finish a match but not start it or record events at the boundary.
+  return result.items.some(item => String(item.userId) === userId && ['LFA Admin', 'Manager', 'Club'].includes(String(item.role)));
 }
 
 async function getUserRole(userId: string) {
