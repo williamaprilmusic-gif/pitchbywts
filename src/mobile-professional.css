@@ -290,3 +290,7 @@ html,body{overflow-x:hidden}
 .division-option input{width:auto;margin:0}
 .division-option.disabled{opacity:.5}
 @media(max-width:420px){.fixture-divisions{gap:6px 10px}.division-option{flex:0 0 42%}}
+
+/* Inline two-step confirm (replaces native window.confirm) */
+.confirm-inline{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12px}
+.confirm-inline span{color:#8a2b2b}
