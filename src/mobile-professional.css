@@ -282,3 +282,11 @@ html,body{overflow-x:hidden}
   .score-editor>strong{flex:1 1 100%}
   .score-editor textarea{flex:1 1 100%;min-height:64px}
 }
+
+/* Multi-division fixture creation: age-group checkbox group */
+.fixture-divisions{border:1px solid #dfe8e2;border-radius:10px;padding:8px 10px;margin:2px 0;display:flex;flex-wrap:wrap;gap:6px 14px}
+.fixture-divisions legend{padding:0 4px}
+.division-option{display:flex;align-items:center;gap:6px;font-size:12px;white-space:nowrap}
+.division-option input{width:auto;margin:0}
+.division-option.disabled{opacity:.5}
+@media(max-width:420px){.fixture-divisions{gap:6px 10px}.division-option{flex:0 0 42%}}
