@@ -126,6 +126,16 @@ assert.equal((await call('POST', '/api/fixture-generator/preview', 'u-lfa', genB
 // Commit is guarded the same way (blocked before anything is written).
 assert.equal((await call('POST', '/api/fixture-generator/commit', 'u-scoped', { ...genBody(['Alpha', 'Bravo']), duplicateMode: 'skip' })).status, 403, 'scoped admin blocked at commit too');
 
+// ===== manual single-fixture add: kick-off window, half length, and competition scope =====
+const fx = (over: Rec = {}) => ({ home: 'Alpha', away: 'Alpha Reserves', date: '2026-05-02', time: '12:00', venue: 'Ground', ageGroup: 'U14', ...over });
+assert.equal((await call('POST', '/api/fixtures', 'u-lfa', fx({ time: '16:00' }))).status, 400, 'kick-off after 15:30 rejected');
+assert.equal((await call('POST', '/api/fixtures', 'u-lfa', fx({ time: '07:30' }))).status, 400, 'kick-off before 08:00 rejected');
+assert.equal((await call('POST', '/api/fixtures', 'u-lfa', fx({ time: '13:00', halfLength: 12 }))).status, 400, 'half length off the 5-minute grid rejected');
+// Scoped admin cannot add a fixture that pulls in another competition's team.
+assert.equal((await call('POST', '/api/fixtures', 'u-scoped', fx({ away: 'Bravo', time: '14:00' }))).status, 403, 'scoped admin blocked from cross-competition fixture');
+// A valid in-window, on-grid fixture is created.
+assert.equal((await call('POST', '/api/fixtures', 'u-lfa', fx({ time: '15:30', halfLength: 30 }))).status, 200, 'valid fixture at the window edge created');
+
 await new Promise(r => server.close(r));
 console.log('tenancy phase 5 enforcement tests passed');
 server.closeAllConnections();

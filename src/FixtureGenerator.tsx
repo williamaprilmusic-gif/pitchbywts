@@ -8,6 +8,7 @@ type BracketRow = { id: string; round: number; roundName: string; home: string; 
 type Preview = { fixtures: GenFixture[]; byes: Array<{ stage: string; team: string }>; bracket?: BracketRow[]; warnings: string[]; limitations: string[]; duplicateCount: number; existingInDivision: number; matchdayCount: number };
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const HALF_LENGTHS = [10, 15, 20, 25, 30, 35, 40, 45];
 const errText = (e: unknown, fallback: string) => (e instanceof Error && e.message ? e.message : fallback);
 
 /** LFA Admin auto-populate flow: configure, preview, then confirm. Rendered inside Fixtures & Scheduling. */
@@ -24,6 +25,7 @@ export default function FixtureGenerator({ teams, venues, setNotice, onSaved }: 
   const [groupCount, setGroupCount] = useState('2');
   const [qualifiers, setQualifiers] = useState('2');
   const [compName, setCompName] = useState('');
+  const [halfLength, setHalfLength] = useState('');
   const [skipDupes, setSkipDupes] = useState(false);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [error, setError] = useState('');
@@ -39,6 +41,7 @@ export default function FixtureGenerator({ teams, venues, setNotice, onSaved }: 
     format, legs: Number(legs), startDate, weekday: Number(weekday), venues: chosenVenues,
     times: timesText.split(/[\s,;]+/).filter(Boolean), teams: selected, ageGroup: format === 'league' || age ? division : '',
     competitionName: compName.trim(), groupCount: Number(groupCount), qualifiers: Number(qualifiers),
+    halfLength: halfLength ? Number(halfLength) : undefined,
   });
 
   const runPreview = async () => {
@@ -68,19 +71,23 @@ export default function FixtureGenerator({ teams, venues, setNotice, onSaved }: 
     <div className='fixture-gen-grid'>
       <label>Format<select value={format} onChange={e => { setFormat(e.target.value); setPicked(null); reset(); }}><option value='league'>League round-robin</option><option value='knockout'>Tournament: knockout</option><option value='groups-knockout'>Tournament: groups then knockout</option></select></label>
       <label>{format === 'league' ? 'Division' : 'Age group (optional filter)'}<select value={format === 'league' ? division : age} onChange={e => { setAge(e.target.value); setPicked(null); reset(); }}>{format !== 'league' && <option value=''>All teams</option>}{ages.map(a => <option key={a} value={a}>{a}</option>)}</select></label>
+    </div>
+    <fieldset className='fixture-gen-picks'><legend>Teams ({selected.length} selected{format === 'knockout' ? ', listed order is seeding' : ''})</legend>{pool.map(t => <label key={t.id} className='fixture-gen-chip'><input type='checkbox' checked={selected.includes(t.name)} onChange={() => { setPicked(toggle(selected, t.name)); reset(); }} />{t.name}</label>)}{!pool.length && <small className='muted'>No teams in this selection.</small>}</fieldset>
+    <div className='fixture-gen-grid'>
       {format !== 'knockout' && <label>Round-robin legs<select value={legs} onChange={e => { setLegs(e.target.value); reset(); }}><option value='1'>Single (each pair once)</option><option value='2'>Double (home and away)</option></select></label>}
       {format === 'groups-knockout' && <><label>Groups<select value={groupCount} onChange={e => { setGroupCount(e.target.value); reset(); }}>{[2, 4, 8].map(n => <option key={n} value={n}>{n} groups</option>)}</select></label><label>Qualifiers per group<select value={qualifiers} onChange={e => { setQualifiers(e.target.value); reset(); }}><option value='1'>Winner only</option><option value='2'>Top two</option></select></label></>}
+      <label>Kick-off times (08:00&ndash;15:30, comma separated)<input value={timesText} onChange={e => { setTimesText(e.target.value); reset(); }} placeholder='13:00, 15:00' /></label>
+      <label>Half length<select value={halfLength} onChange={e => { setHalfLength(e.target.value); reset(); }}><option value=''>Not set</option>{HALF_LENGTHS.map(n => <option key={n} value={n}>{n} min</option>)}</select></label>
       <label>First matchday on or after<input type='date' value={startDate} onChange={e => { setStartDate(e.target.value); reset(); }} /></label>
       <label>Matchday weekday<select value={weekday} onChange={e => { setWeekday(e.target.value); reset(); }}>{WEEKDAYS.map((d, i) => <option key={d} value={i}>{d}</option>)}</select></label>
-      <label>Kick-off times (comma separated)<input value={timesText} onChange={e => { setTimesText(e.target.value); reset(); }} placeholder='13:00, 15:00' /></label>
       {format !== 'league' && <label>Competition name (optional)<input value={compName} maxLength={80} onChange={e => { setCompName(e.target.value); reset(); }} /></label>}
     </div>
     <fieldset className='fixture-gen-picks'><legend>Venues ({chosenVenues.length} selected)</legend>{venues.map(v => <label key={v.id} className='fixture-gen-chip'><input type='checkbox' checked={chosenVenues.includes(v.name)} onChange={() => { setVenueNames(toggle(chosenVenues, v.name)); reset(); }} />{v.name}</label>)}{!venues.length && <small className='muted'>Add a venue under Venue availability first.</small>}</fieldset>
-    <fieldset className='fixture-gen-picks'><legend>Teams ({selected.length} selected{format === 'knockout' ? ', listed order is seeding' : ''})</legend>{pool.map(t => <label key={t.id} className='fixture-gen-chip'><input type='checkbox' checked={selected.includes(t.name)} onChange={() => { setPicked(toggle(selected, t.name)); reset(); }} />{t.name}</label>)}{!pool.length && <small className='muted'>No teams in this selection.</small>}</fieldset>
     <button className='primary' disabled={busy || selected.length < 2 || !chosenVenues.length} onClick={runPreview}>{busy && !preview ? 'Generating...' : 'Preview fixtures'}</button>
     {error && <p className='form-error' role='alert'>{error}</p>}
     {preview && <div className='fixture-gen-preview'>
       <h3>Preview: {preview.fixtures.length} fixtures over {preview.matchdayCount} matchday{preview.matchdayCount === 1 ? '' : 's'}</h3>
+      {halfLength && <p className='muted small'>Halves: {halfLength} minutes each.</p>}
       {preview.warnings.map(w => <p key={w} className='fixture-gen-warn' role='alert'>{w}</p>)}
       {preview.limitations.map(w => <p key={w} className='fixture-gen-note'>{w}</p>)}
       {preview.byes.length > 0 && <p className='muted small'>Byes: {preview.byes.map(b => `${b.team} (${b.stage})`).join(', ')}</p>}

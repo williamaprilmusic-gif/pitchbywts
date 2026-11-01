@@ -62,6 +62,13 @@ export function isValidIsoDate(s: string): boolean {
   return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
 }
 export const isValidTime = (s: string) => /^([01]\d|2[0-3]):[0-5]\d$/.test(s);
+// Every fixture kick-off must fall within the league window, 08:00 to 15:30 inclusive. Zero-padded HH:MM compares lexically.
+export const KICKOFF_MIN = '08:00';
+export const KICKOFF_MAX = '15:30';
+export const isKickoffInWindow = (s: string) => isValidTime(s) && s >= KICKOFF_MIN && s <= KICKOFF_MAX;
+// Allowed half lengths: 10 to 45 minutes in 5-minute steps.
+export const HALF_LENGTHS = [10, 15, 20, 25, 30, 35, 40, 45] as const;
+export const isValidHalfLength = (n: unknown): n is number => typeof n === 'number' && Number.isInteger(n) && n >= 10 && n <= 45 && n % 5 === 0;
 const addDays = (iso: string, days: number) => { const d = new Date(`${iso}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + days); return d.toISOString().slice(0, 10); };
 const firstWeekdayOnOrAfter = (iso: string, weekday: number) => { const d = new Date(`${iso}T00:00:00Z`); return addDays(iso, (weekday - d.getUTCDay() + 7) % 7); };
 
