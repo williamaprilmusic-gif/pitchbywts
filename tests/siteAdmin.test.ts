@@ -26,7 +26,7 @@ async function bundle(flagOn: boolean) {
   await build({
     stdin: { contents: fs.readFileSync(entry, 'utf8').replace("from './appdeployCompat';", "from './appdeployCompat.ts';").replace("import('./appdeployCompat')", "import('./appdeployCompat.ts')"), resolveDir: path.dirname(entry), sourcefile: 'server/apiEntrypoint.ts', loader: 'ts' },
     outfile: path.join(outDir, 'apiRuntime.mjs'), bundle: true, platform: 'node', format: 'esm', target: 'node24', packages: 'external', logLevel: 'error',
-    plugins: flagOn ? [{ name: 'flag-on', setup(b) { b.onLoad({ filter: /tenancyFlag\.ts$/ }, () => ({ contents: 'export const TENANCY_ENFORCED = true;', loader: 'ts' })); } }] : [],
+    plugins: [{ name: 'flag', setup(b) { b.onLoad({ filter: /tenancyFlag\.ts$/ }, () => ({ contents: 'export const TENANCY_ENFORCED = ' + (flagOn ? 'true' : 'false') + ';', loader: 'ts' })); } }],
   });
   fs.symlinkSync(path.join(root, 'node_modules'), path.join(outDir, 'node_modules'), 'junction');
   return (await import(pathToFileURL(path.join(outDir, 'apiRuntime.mjs')).href + (flagOn ? '?on' : ''))).default;
