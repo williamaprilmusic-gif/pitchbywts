@@ -21,8 +21,8 @@ export function canonicalAdminRole<T>(role: T): T | 'LFA Admin' {
 
 /**
  * Role the guards should evaluate. The bootstrap email (PITCHLINE_ADMIN_EMAIL on the signed session) always counts as
- * an admin; any stored admin kind maps to 'LFA Admin'. PHASE 3 ONLY: a stored LFA/Tournament admin with empty
- * competitionIds still passes - competition membership is enforced in phase 5, so existing users keep access.
+ * an admin; any stored admin kind maps to 'LFA Admin'. An admin with empty competitionIds stays GLOBAL even under phase 5
+ * enforcement (so existing users keep full access); only a non-empty competitionIds set scopes an admin to those competitions.
  */
 export function guardRole<T>(stored: T, email?: unknown): T | 'LFA Admin' {
   return isSiteAdmin(email) ? 'LFA Admin' : canonicalAdminRole(stored);

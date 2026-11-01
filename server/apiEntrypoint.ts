@@ -373,7 +373,13 @@ export default async function api(request: VercelRequest, response: VercelRespon
 
   const routeRequest = request as IncomingMessage & { body?: unknown };
   routeRequest.body = request.body;
-  routeRequest.url = pathname;
+  // Preserve any client query string (e.g. ?competitionId=) for the router; drop Vercel's internal ?path= rewrite key.
+  const forwardQuery = new URLSearchParams();
+  if (request.query && typeof request.query === 'object') {
+    for (const [k, v] of Object.entries(request.query)) { if (k === 'path' || v === undefined) continue; if (Array.isArray(v)) v.forEach(x => forwardQuery.append(k, String(x))); else forwardQuery.append(k, String(v)); }
+  } else { try { const original = new URL(request.url || '/', 'https://pitchline.local'); original.searchParams.delete('path'); original.searchParams.forEach((v, k) => forwardQuery.append(k, v)); } catch { /* keep pathname only */ } }
+  const forwarded = forwardQuery.toString();
+  routeRequest.url = forwarded ? `${pathname}?${forwarded}` : pathname;
   try { await handler(routeRequest, response); }
   catch (error) { console.error('Pitchline backend error', { requestId: reqId, error }); if (!response.writableEnded) send(response, 500, { error: 'Backend request failed.', requestId: reqId }, reqId); }
   if (response.statusCode < 400 && request.method === 'POST' && ['/api/live-match/start','/api/live-match/pause','/api/live-match/resume','/api/live-match/finish'].includes(pathname)) {

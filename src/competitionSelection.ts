@@ -1,6 +1,6 @@
 // Phase 7: the competition a Supporter (or the Site Admin) is currently looking at. Stored per browser and appended to
-// fixtures/teams/standings/live reads as ?competitionId=. The server does not filter by it yet (phase 5), so this is
-// harmless today. Everything is wrapped in try/catch because browser storage can be unavailable.
+// fixtures/teams/standings/live reads as ?competitionId=. Phase 5: the server now honours this on /api/fixtures and
+// /api/teams (narrowing the result to that competition). Everything is wrapped in try/catch because browser storage can be unavailable.
 const KEY = 'pitchline.competitionId';
 const SCOPED_READS = /^\/api\/(fixtures|teams|standings|live-match|league-table)(\/|\?|$)/;
 
