@@ -355,3 +355,9 @@ html,body{overflow-x:hidden}
 
 /* Association-standard ranking footnote under a league table */
 .table-note{margin-top:12px;font-size:12px;line-height:1.4}
+
+/* Live match: half-length-aware clock */
+.live-stoppage{font-size:.52em;vertical-align:super;margin-left:2px;opacity:.85}
+.live-half-cue{display:flex;align-items:center;gap:6px;margin:8px 0 0;font-size:13px;font-weight:600;color:#b45309}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .live-half-cue{color:#fbbf24}}
+:root[data-theme="dark"] .live-half-cue{color:#fbbf24}

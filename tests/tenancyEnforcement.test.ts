@@ -133,8 +133,9 @@ assert.equal((await call('POST', '/api/fixtures', 'u-lfa', fx({ time: '07:30' })
 assert.equal((await call('POST', '/api/fixtures', 'u-lfa', fx({ time: '13:00', halfLength: 12 }))).status, 400, 'half length off the 5-minute grid rejected');
 // Scoped admin cannot add a fixture that pulls in another competition's team.
 assert.equal((await call('POST', '/api/fixtures', 'u-scoped', fx({ away: 'Bravo', time: '14:00' }))).status, 403, 'scoped admin blocked from cross-competition fixture');
-// A valid in-window, on-grid fixture is created.
+// A valid in-window, on-grid fixture is created, and its half length round-trips through the fixtures read.
 assert.equal((await call('POST', '/api/fixtures', 'u-lfa', fx({ time: '15:30', halfLength: 30 }))).status, 200, 'valid fixture at the window edge created');
+assert.ok((await call('GET', '/api/fixtures', 'u-lfa')).body.some((f: Rec) => f.halfLength === 30), 'created fixture carries its half length');
 
 await new Promise(r => server.close(r));
 console.log('tenancy phase 5 enforcement tests passed');
