@@ -1,6 +1,6 @@
 // Run with: npm run test:fixtures  (Node 22+/24 strips types natively)
 import assert from 'node:assert/strict';
-import { roundRobin, scheduleMatchdays, splitGroups, buildBracket, knockoutPairs, groupKnockoutPairs, findDuplicates, canGenerateFixtures, isValidIsoDate } from '../backend/fixtureGenerator.ts';
+import { roundRobin, scheduleMatchdays, splitGroups, buildBracket, knockoutPairs, groupKnockoutPairs, findDuplicates, canGenerateFixtures, isValidIsoDate, isKickoffInWindow, isValidHalfLength } from '../backend/fixtureGenerator.ts';
 
 const names = (n: number) => Array.from({ length: n }, (_, i) => `T${i + 1}`);
 
@@ -73,4 +73,11 @@ assert.deepEqual(findDuplicates([{ home: 'A', away: 'B' }], [{ home: 'B', away: 
 assert.equal(canGenerateFixtures('LFA Admin'), true);
 for (const r of ['Club', 'Manager', 'Supporter', '', undefined]) assert.equal(canGenerateFixtures(r as string), false);
 assert.ok(isValidIsoDate('2026-02-28') && !isValidIsoDate('2026-02-30') && !isValidIsoDate('26-1-1'));
+// kick-off window: 08:00–15:30 inclusive
+for (const t of ['08:00', '12:30', '15:30', '09:05']) assert.ok(isKickoffInWindow(t), `${t} in window`);
+for (const t of ['07:59', '15:31', '16:00', '00:00', '7:00', 'ab:cd', '']) assert.ok(!isKickoffInWindow(t), `${t} rejected`);
+// half length: 10–45 in 5-minute steps
+for (const n of [10, 15, 25, 45]) assert.ok(isValidHalfLength(n), `${n} valid half`);
+for (const n of [9, 5, 50, 12, 0, 45.5, -10]) assert.ok(!isValidHalfLength(n), `${n} invalid half`);
+assert.ok(!isValidHalfLength('30' as unknown));
 console.log('fixtureGenerator: all assertions passed');
