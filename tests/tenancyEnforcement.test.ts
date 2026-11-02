@@ -137,6 +137,16 @@ assert.equal((await call('POST', '/api/fixtures', 'u-scoped', fx({ away: 'Bravo'
 assert.equal((await call('POST', '/api/fixtures', 'u-lfa', fx({ time: '15:30', halfLength: 30 }))).status, 200, 'valid fixture at the window edge created');
 assert.ok((await call('GET', '/api/fixtures', 'u-lfa')).body.some((f: Rec) => f.halfLength === 30), 'created fixture carries its half length');
 
+// ===== iCalendar fixtures feed (raw text/calendar response path) =====
+{
+  const r = await fetch(`http://127.0.0.1:${port}/api/calendar/fixtures.ics`);
+  assert.ok((r.headers.get('content-type') || '').includes('text/calendar'), 'ics content-type is text/calendar');
+  const body = await r.text();
+  assert.ok(body.startsWith('BEGIN:VCALENDAR') && body.includes('BEGIN:VEVENT') && body.includes('SUMMARY:'), 'ics has calendar events');
+  const teamFeed = await (await fetch(`http://127.0.0.1:${port}/api/calendar/fixtures.ics?team=${encodeURIComponent('Alpha')}`)).text();
+  assert.ok(teamFeed.includes('Alpha') && !/Bravo/.test(teamFeed), 'team-filtered ics includes only the requested team');
+}
+
 await new Promise(r => server.close(r));
 console.log('tenancy phase 5 enforcement tests passed');
 server.closeAllConnections();

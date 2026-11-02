@@ -356,6 +356,15 @@ html,body{overflow-x:hidden}
 /* Association-standard ranking footnote under a league table */
 .table-note{margin-top:12px;font-size:12px;line-height:1.4}
 
+/* Calendar subscribe CTA (fixtures .ics feed) */
+.calendar-cta{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:14px 0;padding:12px 14px;border:1px solid rgba(120,140,135,.2);border-radius:12px;font-size:14px}
+.calendar-cta.inline{margin:12px 0 4px}
+.calendar-cta>span{flex:1 1 auto;min-width:160px;opacity:.85}
+.calendar-cta-btn{display:inline-flex;align-items:center;padding:7px 14px;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none;background:#111916;color:#f0f8f4;border:1px solid transparent}
+.calendar-cta-btn.ghost{background:transparent;color:inherit;border-color:rgba(120,140,135,.35)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .calendar-cta-btn{background:#3fae6a;color:#07130d}}
+:root[data-theme="dark"] .calendar-cta-btn{background:#3fae6a;color:#07130d}
+
 /* Live match: half-length-aware clock */
 .live-stoppage{font-size:.52em;vertical-align:super;margin-left:2px;opacity:.85}
 .live-half-cue{display:flex;align-items:center;gap:6px;margin:8px 0 0;font-size:13px;font-weight:600;color:#b45309}

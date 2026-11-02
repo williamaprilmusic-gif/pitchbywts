@@ -2,7 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { neon } from '@neondatabase/serverless';
 import { getSessionUser, type AuthUser } from './auth';
 
-export type HttpResult = { status: number; body: unknown };
+export type HttpResult = { status: number; body: unknown; raw?: boolean; contentType?: string };
 export type RequestContext = {
   req: IncomingMessage & { body?: unknown };
   res: ServerResponse;
@@ -161,6 +161,8 @@ export const ws = {
 
 export function json(body: unknown, status = 200): HttpResult { return { status, body }; }
 export function error(message: string, status = 500): HttpResult { return { status, body: { error: message, message } }; }
+/** Return a raw (non-JSON) body such as an iCalendar feed, with an explicit content type. */
+export function text(body: string, status = 200, contentType = 'text/plain; charset=utf-8'): HttpResult { return { status, body, raw: true, contentType }; }
 export function requireAuth(): RouterMiddleware {
   return async ctx => {
     const user = getSessionUser(ctx.req);
@@ -225,7 +227,12 @@ export function router(routes: Record<string, RouterMiddleware[]>): (req: Incomi
       }
       if (!result) result = json({ ok: true });
       res.statusCode = result.status;
-      res.end(JSON.stringify(result.body));
+      if (result.raw) {
+        if (result.contentType) res.setHeader('Content-Type', result.contentType);
+        res.end(typeof result.body === 'string' ? result.body : String(result.body ?? ''));
+      } else {
+        res.end(JSON.stringify(result.body));
+      }
     } catch (cause) {
       console.error('Pitchline API error', { method, path, cause });
       res.statusCode = 500;

@@ -108,6 +108,7 @@ export const ws = {
 
 export function json(body, status = 200) { return { status, body }; }
 export function error(message, status = 500) { return { status, body: { error: message, message } }; }
+export function text(body, status = 200, contentType = 'text/plain; charset=utf-8') { return { status, body, raw: true, contentType }; }
 export function requireAuth() {
   return async ctx => {
     const user = getSessionUser(ctx.req);
@@ -172,7 +173,12 @@ export function router(routes) {
       }
       if (!result) result = json({ ok: true });
       res.statusCode = result.status;
-      res.end(JSON.stringify(result.body));
+      if (result.raw) {
+        if (result.contentType) res.setHeader('Content-Type', result.contentType);
+        res.end(typeof result.body === 'string' ? result.body : String(result.body ?? ''));
+      } else {
+        res.end(JSON.stringify(result.body));
+      }
     } catch (cause) {
       console.error('Pitchline API error', { method, path, cause });
       res.statusCode = 500;
