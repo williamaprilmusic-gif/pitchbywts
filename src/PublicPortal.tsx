@@ -18,6 +18,7 @@ export default function PublicPortal({fixtures,teams,players,communications}:{fi
   const share=async(id:string)=>{const url=`${window.location.origin}${window.location.pathname}#public-match-${id}`;try{await navigator.clipboard.writeText(url);setShared('Match link copied.')}catch{setShared(url)}};
   return <div className='public-portal'>
     <div className='public-hero'><div><p className='eyebrow'>PUBLIC LEAGUE CENTRE</p><h1>Community football, live and open.</h1><p className='muted'>Fixtures, results, standings, teams, player statistics and league announcements in one public matchday experience.</p></div><div className='public-season'><Trophy size={18}/><span>2026 Community League</span></div></div>
+    <div className='calendar-cta'><CalendarDays size={16}/><span>Never miss a match — subscribe to the fixtures calendar in your phone.</span><a className='calendar-cta-btn' href={`webcal://${window.location.host}/api/calendar/fixtures.ics`}>Subscribe</a><a className='calendar-cta-btn ghost' href='/api/calendar/fixtures.ics'>Download .ics</a></div>
     <div className='public-tabs'>{['U8','U10','U12','U14','U16','U18'].map(a=><button key={a} className={age===a?'active':''} onClick={()=>setAge(a)}>{a}</button>)}</div>
     {shared&&<div className='public-notice'>{shared}</div>}
     <div className='public-grid'>

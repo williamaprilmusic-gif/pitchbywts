@@ -36,3 +36,8 @@ createRoot(document.getElementById('root')!).render(
     <RuntimeServices />
   </StrictMode>
 );
+
+// Installable PWA: register the offline service worker (no-op where unsupported).
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(() => undefined); });
+}
