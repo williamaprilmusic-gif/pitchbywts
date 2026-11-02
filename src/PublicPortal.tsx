@@ -18,15 +18,17 @@ export default function PublicPortal({fixtures,teams,players,communications}:{fi
   const [shared,setShared]=useState('');
   const [stats,setStats]=useState<Stats>(EMPTY_STATS);
   const [profile,setProfile]=useState<StatLeader|null>(null);
-  useEffect(()=>{let live=true;api.get('/api/stats').then(r=>{if(live&&r.data)setStats({...EMPTY_STATS,...r.data,leaders:{...EMPTY_STATS.leaders,...(r.data.leaders||{})}})}).catch(()=>undefined);return()=>{live=false};},[]);
+  // Scope stats to the selected division server-side, so unresolved/legacy records (no division) are
+  // excluded before the leaderboards are sliced, rather than crowding out real players of this age.
+  useEffect(()=>{let live=true;api.get(`/api/stats?ageGroup=${encodeURIComponent(age)}`).then(r=>{if(live&&r.data)setStats({...EMPTY_STATS,...r.data,leaders:{...EMPTY_STATS.leaders,...(r.data.leaders||{})}})}).catch(()=>undefined);return()=>{live=false};},[age]);
   const publicTeams=useMemo(()=>rankTeams(teams.filter(t=>t.ageGroup===age),fixtures),[teams,age,fixtures]);
   const upcoming=fixtures.filter(f=>f.status==='upcoming').slice(0,5);
   const results=fixtures.filter(f=>f.status!=='upcoming').slice(0,5);
   const publicPlayers=players.filter(p=>p.team.includes(age)).slice(0,8);
   const published=communications.filter(c=>c.status==='Published').slice(0,6);
-  const scorers=stats.leaders.scorers.filter(s=>!s.ageGroup||s.ageGroup===age).slice(0,10);
-  const assists=stats.leaders.assists.filter(s=>!s.ageGroup||s.ageGroup===age).slice(0,10);
-  const motm=stats.leaders.motm.filter(s=>!s.ageGroup||s.ageGroup===age).slice(0,10);
+  const scorers=stats.leaders.scorers.slice(0,10);
+  const assists=stats.leaders.assists.slice(0,10);
+  const motm=stats.leaders.motm.slice(0,10);
   const formByTeam=useMemo(()=>{const m=new Map<string,FormRow>();for(const f of stats.form)m.set(f.team.toLowerCase(),f);return m;},[stats.form]);
   const profileFor=(name:string,team:string)=>stats.profiles.find(p=>p.name.toLowerCase()===name.toLowerCase()&&p.team.toLowerCase()===team.toLowerCase())||stats.profiles.find(p=>p.name.toLowerCase()===name.toLowerCase())||null;
   const share=async(id:string)=>{const url=`${window.location.origin}${window.location.pathname}#public-match-${id}`;try{await navigator.clipboard.writeText(url);setShared('Match link copied.')}catch{setShared(url)}};
