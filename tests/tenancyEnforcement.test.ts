@@ -147,6 +147,31 @@ assert.ok((await call('GET', '/api/fixtures', 'u-lfa')).body.some((f: Rec) => f.
   assert.ok(teamFeed.includes('Alpha') && !/Bravo/.test(teamFeed), 'team-filtered ics includes only the requested team');
 }
 
+// ===== public stats: leaderboards, player profiles and team form (open, no auth) =====
+{
+  seedFakeNeon('fixtures', [{ id: 'fStat', home: 'Alpha', away: 'Bravo', date: '2026-05-03', time: '12:00', venue: 'Ground', status: 'completed', homeScore: 2, awayScore: 1, competitionId: 'cA' }]);
+  seedFakeNeon('players', [
+    { id: 'pSam', name: 'Sam Striker', team: 'Alpha', position: 'ST', number: 9, status: 'Fit', rating: 0, memberRef: 'M-ALPHA-9' },
+    { id: 'pBo', name: 'Bo Playmaker', team: 'Bravo', position: 'AM', number: 10, status: 'Fit', rating: 0, memberRef: 'M-BRAVO-10' },
+  ]);
+  seedFakeNeon('performance', [
+    { id: 'perf1', fixtureId: 'fStat', playerRef: 'M-ALPHA-9', appearance: 'starter', minutes: 90, goals: 3, assists: 1, yellow: 0, red: 0, saves: 0, rating: 9, motm: true },
+    { id: 'perf2', fixtureId: 'fStat', playerRef: 'M-BRAVO-10', appearance: 'starter', minutes: 90, goals: 1, assists: 2, yellow: 1, red: 0, saves: 0, rating: 7, motm: false },
+  ]);
+  const stats = await call('GET', '/api/stats', null);
+  assert.equal(stats.status, 200, 'public stats endpoint is open to anonymous visitors');
+  assert.equal(stats.body.leaders.scorers[0].name, 'Sam Striker', 'top scorer resolves playerRef to the player name');
+  assert.equal(stats.body.leaders.scorers[0].goals, 3, 'top scorer goal tally is aggregated');
+  assert.equal(stats.body.leaders.assists[0].name, 'Bo Playmaker', 'assists leaderboard ranks by assists');
+  assert.ok(stats.body.leaders.motm.some((m: Rec) => m.name === 'Sam Striker'), 'MOTM leaderboard includes the awarded player');
+  const sam = stats.body.profiles.find((p: Rec) => p.name === 'Sam Striker');
+  assert.ok(sam && sam.goals === 3 && sam.assists === 1 && sam.motm === 1, 'player profile carries aggregated totals');
+  const alphaForm = stats.body.form.find((f: Rec) => f.team === 'Alpha');
+  assert.ok(alphaForm && alphaForm.last5.includes('W'), 'team form guide reflects the completed win');
+  assert.ok((await call('GET', '/api/stats?ageGroup=U14', null)).body.leaders.scorers.length >= 1, 'ageGroup filter returns U14 scorers');
+  assert.equal((await call('GET', '/api/stats?ageGroup=U18', null)).body.leaders.scorers.length, 0, 'ageGroup filter excludes other divisions');
+}
+
 await new Promise(r => server.close(r));
 console.log('tenancy phase 5 enforcement tests passed');
 server.closeAllConnections();
