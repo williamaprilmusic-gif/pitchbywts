@@ -172,6 +172,19 @@ assert.ok((await call('GET', '/api/fixtures', 'u-lfa')).body.some((f: Rec) => f.
   assert.equal((await call('GET', '/api/stats?ageGroup=U18', null)).body.leaders.scorers.length, 0, 'ageGroup filter excludes other divisions');
 }
 
+// ===== discipline auto-suspensions (cards -> bans), with role scoping =====
+{
+  // A red card in a completed fixture with no later completed fixture for the team => outstanding (suspended).
+  seedFakeNeon('fixtures', [{ id: 'fRed', home: 'Alpha', away: 'Bravo', date: '2026-05-10', time: '12:00', venue: 'Ground', status: 'completed', homeScore: 1, awayScore: 1, competitionId: 'cA' }]);
+  seedFakeNeon('performance', [{ id: 'perf3', fixtureId: 'fRed', playerRef: 'M-ALPHA-9', appearance: 'starter', minutes: 90, goals: 0, assists: 0, yellow: 0, red: 1, saves: 0, rating: 6, motm: false }]);
+  const susp = await call('GET', '/api/discipline-suspensions', 'u-lfa');
+  assert.equal(susp.status, 200, 'admin can read the suspension ledger');
+  const sam = susp.body.players.find((p: Rec) => p.name === 'Sam Striker');
+  assert.ok(sam && sam.totalRed === 1 && sam.suspended === true && sam.outstanding === 1, 'red-carded player is flagged suspended');
+  assert.ok(susp.body.policy && susp.body.rules.yellowThreshold === 5, 'ledger carries the suspension policy');
+  assert.equal((await call('GET', '/api/discipline-suspensions', 'u-sup')).status, 403, 'supporters cannot read the suspension ledger');
+}
+
 await new Promise(r => server.close(r));
 console.log('tenancy phase 5 enforcement tests passed');
 server.closeAllConnections();

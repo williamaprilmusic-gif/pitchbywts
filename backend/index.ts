@@ -6,6 +6,7 @@ import { tenancyRoutes } from './tenancyRoutes';
 import { isAdminRole, canonicalAdminRole, guardRole } from './roles';
 import { isSiteAdmin, resolveAccess, inScope, competitionOf, type Access, type CompetitionScope, type Rec } from './tenancy';
 import { canGenerateFixtures, roundRobin, scheduleMatchdays, splitGroups, buildBracket, knockoutPairs, groupKnockoutPairs, groupName, findDuplicates, isValidIsoDate, isValidTime, isKickoffInWindow, isValidHalfLength, type Match, type BracketMatch } from './fixtureGenerator';
+import { summarizeDiscipline, DEFAULT_DISCIPLINE_RULES, disciplinePolicyNote } from './discipline';
 
 type Fixture = { id?: string; home: string; away: string; date: string; time: string; venue: string; status: string; homeScore?: number; awayScore?: number; matchdayStatus?: string; leagueId?: string; homeTeamId?: string; awayTeamId?: string };
 type Team = { id?: string; name: string; ageGroup: string; played: number; won: number; drawn: number; lost: number; gf: number; ga: number; pts: number };
@@ -405,6 +406,15 @@ export const handler=router({
   'GET /api/availability':[requireAuth(),requireAnyRole(['LFA Admin','Club','Manager']),async({user})=>{const scope=await scopedFixtureIds(user!.userId);const rows=await listTable<Record<string,unknown>>('availability');return json(scope.all?rows:rows.filter(r=>scope.ids.has(String(r.fixtureId||''))))}],
   'GET /api/officials':[requireAuth(),async()=>{return json(await listTable<Official>('officials'))}],
   'GET /api/discipline':[requireAuth(),requireAnyRole(['LFA Admin','Club','Manager']),async({user})=>{const scope=await scopedFixtureIds(user!.userId);const rows=await listTable<Discipline>('discipline');return json(scope.all?rows:rows.filter(r=>scope.ids.has(String(r.fixtureId||''))))}],
+  'GET /api/discipline-suspensions':[requireAuth(),requireAnyRole(['LFA Admin','Club','Manager']),async({user})=>{
+    const [players,performance,teams,fixtures]=await Promise.all([listTable<Player>('players'),listTable<Performance>('performance'),listTable<Team>('teams'),listTable<Fixture>('fixtures')]);
+    const ageOf=new Map(teams.map(t=>[String(t.name),String(t.ageGroup||'')]));
+    const enriched=players.map(p=>({memberRef:String(p.memberRef||'').trim(),name:String(p.name||p.memberRef||''),team:String(p.team||''),ageGroup:ageOf.get(String(p.team||''))||''})).filter(p=>p.memberRef);
+    const summary=summarizeDiscipline(enriched,performance.map(p=>({playerRef:String(p.playerRef||''),fixtureId:String(p.fixtureId||''),yellow:Number(p.yellow)||0,red:Number(p.red)||0})),fixtures.map(f=>({id:String(f.id),date:String(f.date||''),status:String(f.status||''),home:String(f.home||''),away:String(f.away||'')})));
+    const assignment=await getRoleAssignment(user!.userId);
+    const scoped=assignment.role==='LFA Admin'?summary:await(async()=>{const deny=new Set(await playerRefsOutOfScope(assignment,summary.map(s=>s.playerRef)));return summary.filter(s=>!deny.has(s.playerRef));})();
+    return json({rules:DEFAULT_DISCIPLINE_RULES,policy:disciplinePolicyNote(),players:scoped});
+  }],
   'GET /api/match-reports':[requireAuth(),requireAnyRole(['LFA Admin','Club','Manager']),async({user})=>{const scope=await scopedFixtureIds(user!.userId);const rows=await listTable<MatchReport>('match_reports');return json(scope.all?rows:rows.filter(r=>scope.ids.has(String(r.fixtureId||''))))}],
   'GET /api/performance':[requireAuth(),async({user})=>{const rows=await listTable<Performance>('performance');const scope=await scopedFixtureIds(user!.userId);if(scope.all)return json(rows);const assignment=await getRoleAssignment(user!.userId);if(assignment.role==='Club'||assignment.role==='Manager')return json(rows.filter(r=>scope.ids.has(String(r.fixtureId||''))));const own=await guardianPlayerRefs(user!.userId);return json(rows.filter(r=>own.has(String(r.playerRef))))}],
   'GET /api/team-sheets':[requireAuth(),async({user})=>{const rows=await listTable<TeamSheet>('team_sheets');const scope=await scopedFixtureIds(user!.userId);if(scope.all)return json(rows);return json(rows.filter(r=>scope.ids.has(String(r.fixtureId||''))))}],
