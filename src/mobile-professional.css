@@ -414,3 +414,13 @@ html,body{overflow-x:hidden}
 :root[data-theme="dark"] .profile-modal{background:#101a15;box-shadow:0 24px 60px rgba(0,0,0,.6)}
 :root[data-theme="dark"] .profile-stat{background:rgba(120,140,135,.14)}
 :root[data-theme="dark"] .profile-form,:root[data-theme="dark"] .profile-form-row{border-top-color:rgba(120,140,135,.2)}
+
+/* Discipline: automatic suspensions and the card ledger */
+.table-row.disc-cards{grid-template-columns:1.5fr 1fr 30px 30px 52px 66px;min-width:420px}
+.disc-team{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.matchday-susp-warning{display:flex;align-items:center;gap:6px;margin:4px 0 10px;padding:8px 10px;border-radius:8px;font-size:12.5px;font-weight:600;color:#b4231f;background:rgba(209,73,91,.1)}
+.pick.suspended{border-color:#e7b4ba;background:#fdf1f2}
+.susp-chip{font-style:normal;font-size:9.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#b4231f;background:rgba(209,73,91,.14);padding:2px 6px;border-radius:5px;margin-left:auto}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .pick.suspended{background:rgba(209,73,91,.16);border-color:rgba(209,73,91,.5)}:root:not([data-theme="light"]) .matchday-susp-warning{color:#f7a8ae;background:rgba(209,73,91,.16)}}
+:root[data-theme="dark"] .pick.suspended{background:rgba(209,73,91,.16);border-color:rgba(209,73,91,.5)}
+:root[data-theme="dark"] .matchday-susp-warning{color:#f7a8ae;background:rgba(209,73,91,.16)}
