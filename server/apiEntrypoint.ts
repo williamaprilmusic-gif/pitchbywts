@@ -130,7 +130,7 @@ async function findDuplicateLiveEvent(input: RecordShape) {
   });
 }
 
-async function getLiveState(fixtureId: string) {
+async function getLiveState(fixtureId: string): Promise<(RecordShape & { events: RecordShape[] }) | undefined> {
   const lives = await db.list<RecordShape>('live_matches', { limit: 5000 });
   const live = lives.items.find(item => String(item.fixtureId || '') === fixtureId);
   if (!live) return undefined;

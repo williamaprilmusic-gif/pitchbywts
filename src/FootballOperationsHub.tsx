@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Activity, Bell, CalendarDays, CheckCircle2, ChevronRight, CircleDollarSign, Heart, Plus, Shield, Trophy, Users } from 'lucide-react';
 import { api } from './platformClient';
 
-type Role = 'Supporter'|'Manager'|'Club'|'LFA Admin';
+type Role = 'Supporter'|'Manager'|'Club'|'Club Manager'|'LFA Admin';
 type Fixture = { id:string; home:string; away:string; date:string; time:string; venue:string; status:string; homeScore?:number; awayScore?:number };
 type Player = { id:string; name:string; team:string; position:string; number:number; status:string; rating:number; memberRef:string };
 type Training = { id:string; title:string; team:string; date:string; startTime:string; venue:string; status:string; notes?:string; createdBy?:string };

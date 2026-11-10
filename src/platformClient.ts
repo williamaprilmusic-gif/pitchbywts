@@ -12,10 +12,13 @@ type LocalUser = {
 
 type Credentials = { email?: string; password?: string; name?: string };
 type ApiFailure = Error & { code?: string; status?: number; requestId?: string };
+// Realtime envelope shape consumers read (`message.type`, `message.payload`). payload stays permissive
+// because each feature pulls different fields off it (entity_type, data, ...).
+type WsMessage = { type?: string; payload?: any };
 type WsConnection = {
     connectionId: string | null;
     ready: Promise<void>;
-    onMessage: (handler: (message: unknown) => void) => void;
+    onMessage: (handler: (message: WsMessage) => void) => void;
     onOpen: (handler: () => void) => void;
     onClose: (handler: () => void) => void;
     onError: (error: unknown) => void;
@@ -128,10 +131,10 @@ function writeStoredUser(user: LocalUser | null) {
 }
 
 export const api = {
-    get: <T = unknown>(url: string) => request<T>('GET', withCompetition(url)),
-    post: <T = unknown>(url: string, body?: unknown) => request<T>('POST', url, body),
-    put: <T = unknown>(url: string, body?: unknown) => request<T>('PUT', url, body),
-    delete: <T = unknown>(url: string, body?: unknown) => request<T>('DELETE', url, body),
+    get: <T = any>(url: string) => request<T>('GET', withCompetition(url)),
+    post: <T = any>(url: string, body?: unknown) => request<T>('POST', url, body),
+    put: <T = any>(url: string, body?: unknown) => request<T>('PUT', url, body),
+    delete: <T = any>(url: string, body?: unknown) => request<T>('DELETE', url, body),
 };
 
 async function promptCredentials() {
